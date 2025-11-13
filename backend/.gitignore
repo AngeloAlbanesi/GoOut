@@ -15,6 +15,11 @@ logs/
 *.log
 npm-debug.log*
 
+# Prisma
+/prisma/database.db
+/prisma/database.db-journal
+
+
 # OS files
 .DS_Store
 Thumbs.db
@@ -24,3 +29,5 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+/generated/prisma
