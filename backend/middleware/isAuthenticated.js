@@ -8,7 +8,8 @@ const isAuthenticated = (req, res, next) => {
 
         const token = authHeader.split(' ')[1];
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decodedToken;    
+        req.id = decodedToken.Id;   
+
         next();
     } catch (error) {     
         return res.status(401).json({ error: 'Accesso non autorizzato: Token non valido o scaduto.' });

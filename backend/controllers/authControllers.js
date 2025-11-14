@@ -2,10 +2,10 @@
 const validatoreEmail = require('validator')
 const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken");
-const { createUser, findByEmail } = require('../models/userModel.js');
+const { createUser, findByEmail, freeUsername  } = require('../models/userModel.js');
 
 async function register(req,res){
-    const { email, password } = req.body;
+    const { email, password, username, dateOfBirth } = req.body;
   
     if(!validatoreEmail.isEmail(email)){
         return res.status(400).json({ error: "Email non valida" });
@@ -14,12 +14,15 @@ async function register(req,res){
     if(!password){
         return res.status(400).json({ error: "Password mancante" });
     }
-/*
-    if(!username){
-        return res.status(400).json({ error: "Username mancante" });
-
-    } */
-
+    if(!await freeUsername(username)){
+        return res.status(409).json({ error: "L'username "+ username +" non è disponibile"});
+    }
+    const dateOfBirthObj= new Date(dateOfBirth);
+    const currentDate = new Date();
+    if(dateOfBirthObj>currentDate)
+    {
+       return res.status(400).json({ error: "Data di nascita non valida" }); 
+    }
     userEsistente = await findByEmail(email)
     if(userEsistente){
          return res.status(409).json({ error: "L'email "+ email +" è collegata ad un account esistente"});
@@ -28,7 +31,7 @@ async function register(req,res){
     try{ 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
-        await createUser(email, passwordHash);          
+        await createUser(email, passwordHash , username, dateOfBirth);          
         return res.status(201).json({messaggio: "Utente creato con successo"});
     
     }catch (err) {
@@ -57,11 +60,10 @@ async function login(req,res){
                 try {
                     token = jwt.sign(
                         {
-                            Id: userEsistente.id,
-                            email: userEsistente.email
+                            Id: userEsistente.id
                         },
                         process.env.JWT_SECRET,
-                        { expiresIn: "1h" }
+                        { expiresIn: "24h" }
                     );
                     return res.status(200).json({success: true,
                             data: {
@@ -76,18 +78,13 @@ async function login(req,res){
     }else {
         return  res.status(401).json({errore: "Login fallito"});
     }
-    
-    
-
 }
 
-async function me (req,res){
-    console.log("Autenticato")
-    return res.status(200).json({success: true});
-}
+
 
 module.exports = {
   register,
-  login,
-  me
+  login
+  //logout
+  //refresh-toke
 };
