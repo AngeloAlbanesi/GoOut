@@ -1,3 +1,4 @@
+//middleware/isEventOwner.js
 const {findCreatorByID} = require('../models/eventModel.js');
 const isEventOwner = async (req,res, next) =>
 {        

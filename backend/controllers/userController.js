@@ -1,3 +1,4 @@
+//userController.js
 const {findById, freeUsername,updateUser } = require('../models/userModel.js');
 
 async function getUserProfile (req,res){

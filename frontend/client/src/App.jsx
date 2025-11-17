@@ -1,35 +1,40 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+//App.jsx
+import { Routes, Route, Link } from 'react-router-dom';
+import RegisterPage from './pages/RegisterPage'; 
+import LoginPage from './pages/LoginPage';
 
-function App() {
-  const [count, setCount] = useState(0)
 
+
+function Navbar() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <nav>
+      <Link to="/login">Login</Link> | {' '}
+      <Link to="/register">Registrati</Link>
+    </nav>
+  );
 }
 
-export default App
+function App() {
+  
+  return (
+    <div>
+      {/* 3. La Navbar è sempre visibile */}
+      <Navbar />
+
+      <hr />
+
+      {/* 4. Il componente Routes agisce come un contenitore per le tue rotte */}
+      <Routes>
+        {/* 5. Ogni Route è una regola: "se l'URL è questo, mostra questo componente" */}
+       
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        
+        {/* Aggiungi qui una rotta "catch-all" per le pagine non trovate (opzionale) */}
+        <Route path="*" element={<h1>404: Pagina Non Trovata</h1>} />
+      </Routes>
+    </div>
+  );
+}
+
+export default App;

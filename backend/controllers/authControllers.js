@@ -1,4 +1,4 @@
-
+//authController.js
 const validatoreEmail = require('validator')
 const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken");
@@ -7,6 +7,7 @@ const { createUser, findByEmail, freeUsername  } = require('../models/userModel.
 async function register(req,res){
     const { email, password, username, dateOfBirth } = req.body;
   
+    console.log(email , password, username ,dateOfBirth);
     if(!validatoreEmail.isEmail(email)){
         return res.status(400).json({ error: "Email non valida" });
     }
@@ -31,7 +32,10 @@ async function register(req,res){
     try{ 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
-        await createUser(email, passwordHash , username, dateOfBirth);          
+       
+        console.log("data nascita modificata: " + dateOfBirthObj);
+        await createUser(email, passwordHash , username, dateOfBirthObj);    
+        
         return res.status(201).json({messaggio: "Utente creato con successo"});
     
     }catch (err) {
@@ -56,18 +60,25 @@ async function login(req,res){
       
         let PasswordMatch = await bcrypt.compare(password,userEsistente.passwordHash)
         if(PasswordMatch){
-            let token;
                 try {
-                    token = jwt.sign(
+                    const token = jwt.sign(
                         {
-                            Id: userEsistente.id
+                            Id: userEsistente.id,
+                            email: userEsistente.email
                         },
                         process.env.JWT_SECRET,
                         { expiresIn: "24h" }
                     );
+                    res.cookie('token', token, {
+                        httpOnly: true, // Il cookie non è accessibile via JavaScript
+                        secure: process.env.NODE_ENV === 'production', // Invia solo su HTTPS in produzione
+                        sameSite: 'strict', // Protezione CSRF
+                        maxAge: 1 * 60 * 60 * 1000 // Scadenza del cookie in millisecondi (es. 1 ora)
+                    });
                     return res.status(200).json({success: true,
                             data: {
-                                token: token,
+                                Id: userEsistente.id,
+                                email: userEsistente.email
                             }
             });      
                 } catch (err) 

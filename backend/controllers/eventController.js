@@ -1,9 +1,8 @@
+//eventcontroller.js
 const {insertEvent } = require('../models/eventModel.js');
 
 
-/*ci sara da sviluppare eventModels con tutte le funzioni all'interno che poi
-* vengono chiamate da queste funzioni el controller, qui vanno validati i dati ecc....
-*/
+
 
 async function createEvent(req,res) {
     //METODO DI MOCK SOLO PER PROVA
