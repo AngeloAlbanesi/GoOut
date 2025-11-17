@@ -11,12 +11,30 @@ datasource db {
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
-  username  String?    @unique
+  username  String    @unique
   passwordHash  String
-  dateOfBirth   DateTime? 
+  dateOfBirth   DateTime 
   bio           String?   // Opzionale
   profilePictureUrl String? //opzionale
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  createdEvents Event[] // Un utente può avere una lista di eventi creati
+}
+
+// Aggiungi questo nuovo modello completo
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  date        DateTime
+  location    String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+
+  creatorId   Int      // La "foreign key" che punta all'utente
+  creator     User     @relation(fields: [creatorId], references: [id])
 }

@@ -1,12 +1,13 @@
-
+//authController.js
 const validatoreEmail = require('validator')
 const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken");
-const { createUser, findByEmail } = require('../models/userModel.js');
+const { createUser, findByEmail, freeUsername  } = require('../models/userModel.js');
 
 async function register(req,res){
-    const { email, password } = req.body;
+    const { email, password, username, dateOfBirth } = req.body;
   
+    console.log(email , password, username ,dateOfBirth);
     if(!validatoreEmail.isEmail(email)){
         return res.status(400).json({ error: "Email non valida" });
     }
@@ -14,12 +15,15 @@ async function register(req,res){
     if(!password){
         return res.status(400).json({ error: "Password mancante" });
     }
-/*
-    if(!username){
-        return res.status(400).json({ error: "Username mancante" });
-
-    } */
-
+    if(!await freeUsername(username)){
+        return res.status(409).json({ error: "L'username "+ username +" non è disponibile"});
+    }
+    const dateOfBirthObj= new Date(dateOfBirth);
+    const currentDate = new Date();
+    if(dateOfBirthObj>currentDate)
+    {
+       return res.status(400).json({ error: "Data di nascita non valida" }); 
+    }
     userEsistente = await findByEmail(email)
     if(userEsistente){
          return res.status(409).json({ error: "L'email "+ email +" è collegata ad un account esistente"});
@@ -28,7 +32,10 @@ async function register(req,res){
     try{ 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
-        await createUser(email, passwordHash);          
+       
+        console.log("data nascita modificata: " + dateOfBirthObj);
+        await createUser(email, passwordHash , username, dateOfBirthObj);    
+        
         return res.status(201).json({messaggio: "Utente creato con successo"});
     
     }catch (err) {
@@ -53,19 +60,25 @@ async function login(req,res){
       
         let PasswordMatch = await bcrypt.compare(password,userEsistente.passwordHash)
         if(PasswordMatch){
-            let token;
                 try {
-                    token = jwt.sign(
+                    const token = jwt.sign(
                         {
                             Id: userEsistente.id,
                             email: userEsistente.email
                         },
                         process.env.JWT_SECRET,
-                        { expiresIn: "1h" }
+                        { expiresIn: "24h" }
                     );
+                    res.cookie('token', token, {
+                        httpOnly: true, // Il cookie non è accessibile via JavaScript
+                        secure: process.env.NODE_ENV === 'production', // Invia solo su HTTPS in produzione
+                        sameSite: 'strict', // Protezione CSRF
+                        maxAge: 1 * 60 * 60 * 1000 // Scadenza del cookie in millisecondi (es. 1 ora)
+                    });
                     return res.status(200).json({success: true,
                             data: {
-                                token: token,
+                                Id: userEsistente.id,
+                                email: userEsistente.email
                             }
             });      
                 } catch (err) 
@@ -76,18 +89,13 @@ async function login(req,res){
     }else {
         return  res.status(401).json({errore: "Login fallito"});
     }
-    
-    
-
 }
 
-async function me (req,res){
-    console.log("Autenticato")
-    return res.status(200).json({success: true});
-}
+
 
 module.exports = {
   register,
-  login,
-  me
+  login
+  //logout
+  //refresh-toke
 };
