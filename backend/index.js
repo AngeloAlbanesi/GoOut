@@ -21,7 +21,7 @@ app.use((req, res, next) => {
 });
 app.use('/api/auth', authRoutes.router);
 app.use('/api/users', userRoutes.router);
-app.use('/api/events',eventRoutes.router);
+app.use('/api/events', eventRoutes);
 app.listen(PORT, () => {
   
   console.log(`🚀 Server in ascolto sulla porta ${PORT}`);
