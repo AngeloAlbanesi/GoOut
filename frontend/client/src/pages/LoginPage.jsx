@@ -1,6 +1,9 @@
 //pages/LoginPage.jsx
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authService} from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
 
 function LoginPage(){
     const [email, setEmail]= useState('');
@@ -9,8 +12,8 @@ function LoginPage(){
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
 
-         
-
+    const navigate = useNavigate();    
+    const authTools = useAuth();
 
     const handleSubmit = async (event) => {
             event.preventDefault();
@@ -22,8 +25,10 @@ function LoginPage(){
                     password,
                 };
                 const response = await authService.login(loginData);
-                console.log('Risposta dal server:', response.data);
+                const userData = response.data.data; 
+                authTools.setUser(userData);              
                 setSuccess('Login effettuato correttamente!!.');
+                navigate('/');
             }catch(err){
                 console.error('Errore durante il login: ', err.response.data);
                 setError(err.response.data.message || 'si è verificato un errore');
