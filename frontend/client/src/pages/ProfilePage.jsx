@@ -1,30 +1,30 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { eventService } from '../services/api';
-import { useAuth } from '../context/AuthContext'; // <--- Importazione dal ramo 'main'
+import { useAuth } from '../context/AuthContext'; 
 
 function ProfilePage() {
-    // 1. Prendi l'utente dal contesto, non ricaricarlo (cambiato rispetto ad Angelo-1)
+    
     const { user } = useAuth();
-    // 2. Rimuovi setUser e mantieni gli stati per eventi e partecipazioni
+    
     const [myEvents, setMyEvents] = useState([]);
     const [participations, setParticipations] = useState([]);
-    // Il loading viene usato per il caricamento degli eventi, non dell'utente (che è gestito in App.jsx)
+    
     const [loading, setLoading] = useState(true); 
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Non c'è bisogno di ricaricare i dati utente qui, li prendiamo dal contesto.
+        
         if (!user) {
-          // Questo caso non dovrebbe verificarsi se si usa ProtectedRoute correttamente,
-          // ma è una buona safety net (e gestisce il caso in cui l'utente è null per qualche motivo)
+          
+          
           navigate('/login');
           return;
         }
 
         const fetchData = async () => {
             try {
-                // Rimosso: const userRes = await userService.mieiDati();
+               
                 
                 const eventsRes = await eventService.getMyEvents();
                 setMyEvents(eventsRes.data);
@@ -33,14 +33,14 @@ function ProfilePage() {
                 setParticipations(participationsRes.data);
             } catch (error) {
                 console.error("Errore nel caricamento dati:", error);
-                // Lasciamo che sia ProtectedRoute a gestire il reindirizzamento in caso di token non valido
+                
             } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
-    }, [navigate, user]); // Aggiunto 'user' alle dipendenze per coerenza
+    }, [navigate, user]); 
 
     const handleDeleteEvent = async (eventId) => {
         if (window.confirm("Sei sicuro di voler cancellare questo evento?")) {
@@ -66,8 +66,7 @@ function ProfilePage() {
         }
     };
 
-    // 3. Modifica la logica di caricamento per tenere conto di 'user'
-    // ProtectedRoute dovrebbe aver già assicurato che l'utente esista, ma controlliamo comunque
+   
     if (!user || loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-white">
@@ -76,7 +75,7 @@ function ProfilePage() {
         );
     }
 
-    // 4. Markup Completo (dal ramo Angelo-1)
+   
     return (
         <div className="min-h-screen bg-white py-12 px-4 sm:px-6 lg:px-8 font-sans">
             <div className="max-w-7xl mx-auto space-y-16">

@@ -1,13 +1,13 @@
 const dotenv = require('dotenv');
 const cors = require('cors');
 const express = require('express');
-const cookieParser = require ('cookie-parser');
+const cookieParser = require('cookie-parser');
 
 dotenv.config();
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials:true
+    origin: 'http://localhost:5173',
+    credentials: true
 }));
 
 
@@ -28,10 +28,10 @@ const userRoutes = require('./routes/userRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes.router);
-app.use('/api/events',eventRoutes.router);
+app.use('/api/events', eventRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  
-  console.log(`🚀 Server in ascolto sulla porta ${PORT}`);
+
+    console.log(`🚀 Server in ascolto sulla porta ${PORT}`);
 });

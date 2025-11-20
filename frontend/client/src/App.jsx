@@ -16,7 +16,7 @@ function Navbar() {
   
   const handleLogout = async () => {
     await logout();
-    navigate('/login'); // Reindirizza dopo il logout
+    navigate('/login');
   };
   return (
      <nav>
@@ -45,20 +45,20 @@ function App() {
     const checkLoggedIn = async () => {
       try {
         const response = await userService.mieiDati(); // Chiama l'endpoint /me
-        setUser(response.data.data); // Popola lo stato se il token è valido
+        setUser(response.data.data); 
       } catch (error) {
         console.log('Nessun utente loggato o token non valido.',error.data);
         setUser(null);
       } finally {
-        setLoading(false); // Fine del caricamento
+        setLoading(false);
       }
     };
 
     checkLoggedIn();
-  }, []); // L'array vuoto [] significa: "esegui questo solo una volta, al montaggio"
+  }, []); 
 
   if (loading) {
-    return <div>Caricamento...</div>; // Mostra un messaggio mentre controlliamo la sessione
+    return <div>Caricamento...</div>; 
   } 
 
   return (
