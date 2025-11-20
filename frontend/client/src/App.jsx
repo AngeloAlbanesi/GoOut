@@ -7,6 +7,8 @@ import ProfilePage from './pages/ProfilePage';
 import { useAuth } from './context/AuthContext'; 
 import {userService} from './services/api';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { PublicRoute } from './components/PublicRoute';
+
 
 
 function Navbar() {
@@ -69,8 +71,12 @@ function App() {
           <ProtectedRoute> 
             <ProfilePage/> 
           </ProtectedRoute>}/>
-        <Route path='/login' element= {<LoginPage/>} />
-        <Route path='/register' element= {<RegisterPage/>} />
+
+         
+          <Route path='/login' element= {<PublicRoute> <LoginPage/> </PublicRoute>} />
+          <Route path='/register' element= {<PublicRoute> <RegisterPage/></PublicRoute>} />
+        
+        
       </Routes>
     </div>
   );
