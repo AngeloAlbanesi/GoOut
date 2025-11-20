@@ -12,6 +12,7 @@ const apiClient = axios.create({ baseURL: 'http://localhost:3001/api',
 export const authService = {
     register: (userData) => { return apiClient.post('auth/register', userData);},
     login: (loginData) => { return apiClient.post('auth/login',loginData);},
+    logout: () =>   {return apiClient.post ('auth/logout'); }, 
     
 
 };

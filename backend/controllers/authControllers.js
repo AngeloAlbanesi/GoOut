@@ -73,7 +73,8 @@ async function login(req,res){
                         httpOnly: true, // Il cookie non è accessibile via JavaScript
                         secure: process.env.NODE_ENV === 'production', // Invia solo su HTTPS in produzione
                         sameSite: 'strict', // Protezione CSRF
-                        maxAge: 1 * 60 * 60 * 1000 // Scadenza del cookie in millisecondi (es. 1 ora)
+                        maxAge: 24 * 60 * 60 * 1000, // Scadenza del cookie in millisecondi (es. 1 ora)
+                        path: '/',
                     });
                     return res.status(200).json({success: true,
                             data: {
@@ -91,11 +92,31 @@ async function login(req,res){
     }
 }
 
+async function logout (req, res){
+    
+    try {
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict', // Usa 'lax' come abbiamo discusso
+            path: '/',
+        
+        });
+
+        return res.status(200).json({ success: true, message: "Logout effettuato con successo" });
+
+    } catch (err) {
+      
+        return res.status(500).json({ success: false, errore: "Errore interno durante il logout" });
+    }
+
+}
+
 
 
 module.exports = {
   register,
-  login
-  //logout
+  login,
+  logout,
   //refresh-toke
 };
