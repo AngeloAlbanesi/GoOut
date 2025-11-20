@@ -2,60 +2,67 @@
 const validatoreEmail = require('validator')
 const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken");
-const { createUser, findByEmail, freeUsername  } = require('../models/userModel.js');
+const { createUser, findByEmail, freeUsername } = require('../models/userModel.js');
 
-async function register(req,res){
+async function register(req, res) {
     const { email, password, username, dateOfBirth } = req.body;
-  
-    console.log(email , password, username ,dateOfBirth);
-    if(!validatoreEmail.isEmail(email)){
+
+    if (!validatoreEmail.isEmail(email)) {
         return res.status(400).json({ error: "Email non valida" });
     }
-    
-    if(!password){
+
+    if (!password) {
         return res.status(400).json({ error: "Password mancante" });
     }
-    if(!await freeUsername(username)){
-        return res.status(409).json({ error: "L'username "+ username +" non è disponibile"});
-    }
-    const dateOfBirthObj= new Date(dateOfBirth);
-    const currentDate = new Date();
-    if(dateOfBirthObj>currentDate)
-    {
-       return res.status(400).json({ error: "Data di nascita non valida" }); 
-    }
-    userEsistente = await findByEmail(email)
-    if(userEsistente){
-         return res.status(409).json({ error: "L'email "+ email +" è collegata ad un account esistente"});
+    if (!await freeUsername(username)) {
+        return res.status(409).json({ error: "L'username " + username + " non è disponibile" });
     }
 
-    try{ 
+    if (!dateOfBirth) {
+        return res.status(400).json({ error: "Data di nascita mancante" });
+    }
+
+    const dateOfBirthObj = new Date(dateOfBirth);
+    if (isNaN(dateOfBirthObj.getTime())) {
+        return res.status(400).json({ error: "Data di nascita non valida" });
+    }
+
+    const currentDate = new Date();
+    if (dateOfBirthObj > currentDate) {
+        return res.status(400).json({ error: "Data di nascita non valida" });
+    }
+    userEsistente = await findByEmail(email)
+    if (userEsistente) {
+        return res.status(409).json({ error: "L'email " + email + " è collegata ad un account esistente" });
+    }
+
+    try {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
-       
+
         console.log("data nascita modificata: " + dateOfBirthObj);
-        await createUser(email, passwordHash , username, dateOfBirthObj);    
-        
-        return res.status(201).json({messaggio: "Utente creato con successo"});
-    
-    }catch (err) {
-        return res.status(500).json({errore: "Errore Interno creazione utente"});
+        await createUser(email, passwordHash, username, dateOfBirthObj);
+
+        return res.status(201).json({ messaggio: "Utente creato con successo" });
+
+    } catch (err) {
+        return res.status(500).json({ errore: "Errore Interno creazione utente" });
     }
-     
+
 }
 
-async function login(req,res){
-    
+async function login(req, res) {
+
     const { email, password } = req.body;
-    if(!validatoreEmail.isEmail(email)){
+    if (!validatoreEmail.isEmail(email)) {
         return res.status(400).json({ error: "Email non valida" });
     }
-     if(!password){
+    if (!password) {
         return res.status(400).json({ error: "Password mancante" });
     }
     userEsistente = await findByEmail(email)
-    if(!userEsistente){
-         return res.status(400).json({ error: "Nessun utente trovato con l'email "+ email });
+    if (!userEsistente) {
+        return res.status(400).json({ error: "Nessun utente trovato con l'email " + email });
     }
       
         let PasswordMatch = await bcrypt.compare(password,userEsistente.passwordHash)
