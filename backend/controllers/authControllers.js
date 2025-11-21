@@ -2,38 +2,38 @@
 const validatoreEmail = require('validator')
 const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken");
-const { createUser, findByEmail, freeUsername } = require('../models/userModel.js');
+const { createUser, findByEmail, freeUsername, findByUsername} = require('../models/userModel.js');
 
 async function register(req, res) {
     const { email, password, username, dateOfBirth } = req.body;
 
     if (!validatoreEmail.isEmail(email)) {
-        return res.status(400).json({ error: "Email non valida" });
+        return res.status(400).json({ error: "Email non valida", code: 400, status: "bad request" });
     }
 
     if (!password) {
-        return res.status(400).json({ error: "Password mancante" });
+        return res.status(400).json({ error: "Password mancante", code: 400, status: "bad request" });
     }
     if (!await freeUsername(username)) {
-        return res.status(409).json({ error: "L'username " + username + " non è disponibile" });
+        return res.status(409).json({ error: "L'username " + username + " non è disponibile", code: 409, status: "conflict" });
     }
 
     if (!dateOfBirth) {
-        return res.status(400).json({ error: "Data di nascita mancante" });
+        return res.status(400).json({ error: "Data di nascita mancante", code: 400, status: "bad request" });
     }
 
     const dateOfBirthObj = new Date(dateOfBirth);
     if (isNaN(dateOfBirthObj.getTime())) {
-        return res.status(400).json({ error: "Data di nascita non valida" });
+        return res.status(400).json({ error: "Data di nascita non valida", code: 400, status: "bad request" });
     }
 
     const currentDate = new Date();
     if (dateOfBirthObj > currentDate) {
-        return res.status(400).json({ error: "Data di nascita non valida" });
+        return res.status(400).json({ error: "Data di nascita non valida", code: 400, status: "bad request" });
     }
     userEsistente = await findByEmail(email)
     if (userEsistente) {
-        return res.status(409).json({ error: "L'email " + email + " è collegata ad un account esistente" });
+        return res.status(409).json({ error: "L'email " + email + " è collegata ad un account esistente", code: 409, status: "conflict" });
     }
 
     try {
@@ -43,26 +43,29 @@ async function register(req, res) {
         console.log("data nascita modificata: " + dateOfBirthObj);
         await createUser(email, passwordHash, username, dateOfBirthObj);
 
-        return res.status(201).json({ messaggio: "Utente creato con successo" });
+        return res.status(201).json({ messaggio: "Utente creato con successo", code: 201, status: "created" });
 
     } catch (err) {
-        return res.status(500).json({ errore: "Errore Interno creazione utente" });
+        return res.status(500).json({ errore: "Errore Interno creazione utente", code: 500, status: "internal server error" });
     }
 
 }
 
 async function login(req, res) {
 
-    const { email, password } = req.body;
-    if (!validatoreEmail.isEmail(email)) {
-        return res.status(400).json({ error: "Email non valida" });
-    }
+    const { user, password } = req.body;
+  
     if (!password) {
-        return res.status(400).json({ error: "Password mancante" });
+        return res.status(400).json({ error: "Password mancante", code: 400, status: "bad request" });
     }
-    userEsistente = await findByEmail(email)
-    if (!userEsistente) {
-        return res.status(400).json({ error: "Nessun utente trovato con l'email " + email });
+    if(validatoreEmail.isEmail(user)){
+    userEsistente = await findByEmail(user)
+    }else{
+    userEsistente = await findByUsername(user)
+    }
+
+    if(!userEsistente) {
+                return res.status(401).json({ error: "Credenziali errate", code: 401, status: "bad request" });
     }
       
         let PasswordMatch = await bcrypt.compare(password,userEsistente.passwordHash)
@@ -87,34 +90,29 @@ async function login(req, res) {
                             data: {
                                 Id: userEsistente.id,
                                 email: userEsistente.email
-                            }
+                            }, code: 200, status: "ok"
             });      
                 } catch (err) 
-                { return res.status(500).json({errore: "Errore generazione token"});}
+                { return res.status(500).json({errore: "Errore generazione token", code: 500, status: "internal server error"});}
                 
 
         
-    }else {
-        return  res.status(401).json({errore: "Login fallito"});
-    }
+        }else {
+                          return  res.status(401).json({errore: "credenziali errate", code: 401, status: "unauthorized"});
+        }
 }
 
 async function logout (req, res){
-    
     try {
         res.clearCookie('token', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict', // Usa 'lax' come abbiamo discusso
+            sameSite: 'strict', 
             path: '/',
-        
         });
-
-        return res.status(200).json({ success: true, message: "Logout effettuato con successo" });
-
-    } catch (err) {
-      
-        return res.status(500).json({ success: false, errore: "Errore interno durante il logout" });
+        return res.status(200).json({ success: true, message: "Logout effettuato con successo", code: 200, status: "ok" });
+    } catch (err) {  
+        return res.status(500).json({ success: false, errore: "Errore interno durante il logout", code: 500, status: "internal server error" });
     }
 
 }

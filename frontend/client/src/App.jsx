@@ -19,21 +19,33 @@ function Navbar() {
     navigate('/login');
   };
   return (
-     <nav>
-      <Link to="/">Home</Link> |{' '}
-      {isAuthenticated ? (
-        <>
-          <h1>Utente loggato</h1>
-          <Link to="/profilo">Profilo</Link> |{' '} 
-          <Link to="/events/new">Crea Evento</Link>
-          <button onClick={handleLogout}>Logout</button>
-        </>
-      ) : (
-        <>
-          <Link to="/login">Login</Link> |{' '}
-          <Link to="/register">Registrati</Link>
-        </>
-      )}
+    <nav className="bg-white border-b border-gray-200 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="text-xl font-bold text-[#09090b]">GoOut</Link>
+          </div>
+          <div className="flex items-center space-x-4">
+            {isAuthenticated ? (
+              <>
+                <Link to="/profilo" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">Profilo</Link>
+                <Link to="/events/new" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">Crea Evento</Link>
+                <button
+                  onClick={handleLogout}
+                  className="ml-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm font-semibold rounded-xl text-white bg-[#09090b] hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">Login</Link>
+                <Link to="/register" className="ml-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm font-semibold rounded-xl text-white bg-[#09090b] hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all">Registrati</Link>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </nav>
   );
 }
@@ -55,7 +67,7 @@ function App() {
     };
 
     checkLoggedIn();
-  }, []); 
+  }, [setUser]); 
 
   if (loading) {
     return <div>Caricamento...</div>; 

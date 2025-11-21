@@ -33,6 +33,14 @@ async function findById(id){
   });
 }
 
+async function findByUsername(username){
+  return await prisma.user.findUnique({
+    where:{
+      username:username,
+    },
+  });
+}
+
 //restituisce false se username gia usato, true se è "libero"
 async function freeUsername (username){
   const user = await prisma.user.findUnique({
@@ -60,7 +68,6 @@ async function updateUser(id,username, bio, profilePictureUrl){
         profilePictureUrl:profilePictureUrl
       }
     }); 
- 
 
   }
 
@@ -72,5 +79,6 @@ module.exports = {
   findByEmail,
   findById,
   freeUsername,
-  updateUser
-}
+  updateUser,
+  findByUsername
+};
