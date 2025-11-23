@@ -2,7 +2,8 @@
 const validatoreEmail = require('validator')
 const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken");
-const { createUser, findByEmail, freeUsername, findByUsername} = require('../models/userModel.js');
+const { createUser, findByEmail,updateUserRefreshToken, freeUsername, findByUsername} = require('../models/userModel.js');
+const { path } = require('express/lib/application.js');
 
 async function register(req, res) {
     const { email, password, username, dateOfBirth } = req.body;
@@ -71,45 +72,70 @@ async function login(req, res) {
         let PasswordMatch = await bcrypt.compare(password,userEsistente.passwordHash)
         if(PasswordMatch){
                 try {
-                    const token = jwt.sign(
+                    const accessToken = jwt.sign(
                         {
                             Id: userEsistente.id,
                             email: userEsistente.email
                         },
                         process.env.JWT_SECRET,
-                        { expiresIn: "24h" }
+                        { expiresIn: "15m" }
                     );
-                    res.cookie('token', token, {
+                    const refreshToken = jwt.sign(
+                        {Id: userEsistente.id},
+                        process.env.REFRESH_TOKEN_SECRET,
+                        { expiresIn: "7d" }
+                    )
+
+                    await updateUserRefreshToken(userEsistente.id, refreshToken);
+
+                    res.cookie('token', accessToken, {
                         httpOnly: true, // Il cookie non è accessibile via JavaScript
                         secure: process.env.NODE_ENV === 'production', // Invia solo su HTTPS in produzione
                         sameSite: 'strict', // Protezione CSRF
-                        maxAge: 24 * 60 * 60 * 1000, // Scadenza del cookie in millisecondi (es. 1 ora)
+                        maxAge: 15 * 60 * 1000, // Scadenza del cookie in millisecondi (es. 1 ora)
                         path: '/',
                     });
+
+                    res.cookie('refreshToken', refreshToken, {
+                        httpOnly: true,
+                        secure: process.env.NODE_ENV === 'production',
+                        sameSite: 'strict',
+                        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 giorni    
+                        path: '/api/auth/refresh-token',    
+                    }); 
+
                     return res.status(200).json({success: true,
                             data: {
                                 Id: userEsistente.id,
                                 email: userEsistente.email
                             }, code: 200, status: "ok"
-            });      
+                    });      
                 } catch (err) 
                 { return res.status(500).json({errore: "Errore generazione token", code: 500, status: "internal server error"});}
                 
 
         
         }else {
-                          return  res.status(401).json({errore: "credenziali errate", code: 401, status: "unauthorized"});
+            return  res.status(401).json({errore: "credenziali errate", code: 401, status: "unauthorized"});
         }
 }
 
 async function logout (req, res){
     try {
-        res.clearCookie('token', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict', 
-            path: '/',
-        });
+        const refreshToken = req.cookies.refreshToken;
+        if (refreshToken) {
+            const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+            if(decoded){
+            await updateUserRefreshToken(decoded.Id, null);
+            }
+        }
+    } catch (err) {
+        // Ignora gli errori relativi al token
+    }
+    
+    try {
+        res.clearCookie('token', { path: '/' });
+        res.clearCookie('refreshToken', { path: '/api/auth/refresh-token' });
         return res.status(200).json({ success: true, message: "Logout effettuato con successo", code: 200, status: "ok" });
     } catch (err) {  
         return res.status(500).json({ success: false, errore: "Errore interno durante il logout", code: 500, status: "internal server error" });
@@ -117,11 +143,44 @@ async function logout (req, res){
 
 }
 
+async function refreshToken(req, res) {
+    const refreshToken = req.cookies.refreshToken;
 
+    if (!refreshToken) {
+        return res.status(401).json({ error: "Refresh token mancante", code: 401, status: "unauthorized" });
+    }
 
+    try {
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+        const user = await findById(decoded.Id);
+        
+        if (!user || user.refreshToken !== refreshToken) {
+            return res.status(403).json({ error: "Refresh token non valido", code: 403, status: "forbidden" });
+        }
+        const newAccessToken = jwt.sign(
+            {Id: user.id},
+            process.env.JWT_SECRET,
+            { expiresIn: "15m" }
+        );
+
+        res.cookie('token', newAccessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 15 * 60 * 1000, // 15 minuti   
+            path: '/',    
+        });
+
+        return res.status(200).json({ success: true, data: { token: newAccessToken }, code: 200, status: "ok" });
+
+    } catch (err) {
+        return res.status(403).json({ error: "Refresh token non valido", code: 403, status: "forbidden" });
+    }       
+
+}
 module.exports = {
   register,
   login,
   logout,
-  //refresh-toke
+  refreshToken
 };

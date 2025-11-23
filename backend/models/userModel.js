@@ -71,7 +71,12 @@ async function updateUser(id,username, bio, profilePictureUrl){
 
   }
 
-
+async function updateUserRefreshToken(userId, refreshToken) {
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { refreshToken: refreshToken },
+  });
+}
 
 
 module.exports = {
@@ -80,5 +85,6 @@ module.exports = {
   findById,
   freeUsername,
   updateUser,
-  findByUsername
+  findByUsername,
+  updateUserRefreshToken
 };
