@@ -157,7 +157,7 @@ function RegisterPage() {
                                 </button>
 
                                 <button type="button" onClick={() => navigate('/login')} className="text-sm font-semibold text-gray-500 hover:text-[#09090b]">
-                                    Hai già un account? Accedi
+                                    Ho già un account
                                 </button>
                             </div>
                         </form>

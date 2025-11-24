@@ -86,7 +86,7 @@ function LoginPage() {
 
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div>
-                                <label htmlFor="user" className="block text-sm font-semibold text-[#09090b] mb-2">Email</label>
+                                <label htmlFor="user" className="block text-sm font-semibold text-[#09090b] mb-2">Email/Username</label>
                                 <input
                                     id="user"
                                     type="text"
@@ -94,7 +94,7 @@ function LoginPage() {
                                     onChange={(e) => setUser(e.target.value)}
                                     required
                                     className="appearance-none block w-full px-4 py-3.5 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#09090b] focus:border-transparent bg-gray-50 text-[#09090b] transition-all text-base hover:bg-gray-100 focus:bg-white"
-                                    placeholder="tuo@email.com"
+                                    placeholder="utente@email.com / username"
                                 />
                             </div>
 
