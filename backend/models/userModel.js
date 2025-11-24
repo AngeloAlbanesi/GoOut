@@ -73,7 +73,12 @@ async function updateUser(id,username, bio, profilePictureUrl){
 
   }
 
-
+async function updateUserRefreshToken(userId, refreshToken) {
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { refreshToken: refreshToken },
+  });
+}
   // utile per operazioni di sola lettura (es. mostrare “Segui / Non segui” nella UI, conteggi, ecc.)
   async function isFollowing(followerId, followingId) {
   return await prisma.follows.findUnique({
@@ -122,5 +127,6 @@ module.exports = {
   isFollowing,
   followUser,
   unfollowUser,
-  findByUsername
+  findByUsername,
+  updateUserRefreshToken
 };
