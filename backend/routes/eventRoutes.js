@@ -18,4 +18,14 @@ router.delete('/:id/participate', isAuthenticated, eventController.cancelPartici
 router.get('/my-events', isAuthenticated, eventController.getMyEvents);
 router.get('/my-participations', isAuthenticated, eventController.getMyParticipations);
 
+// Rotte per la consultazione (pubbliche / authenticate)
+// Elenco eventi futuri (pubblico, con paginazione)
+router.get('/future', eventController.getFutureEvents);
+
+// Eventi creati dagli utenti seguiti (richiede auth)
+router.get('/from-followed', isAuthenticated, eventController.getEventsFromFollowedUsers);
+
+// Dettagli di un singolo evento (richiede auth oppure rimuovi isAuthenticated per rendere pubblico)
+router.get('/:id', isAuthenticated, eventController.getEventDetails);
+
 module.exports = router;

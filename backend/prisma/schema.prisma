@@ -22,6 +22,9 @@ model User {
 
   createdEvents Event[] // Un utente può avere una lista di eventi creati
   registrations Registration[]
+
+  followers Follows[] @relation("UserFollowing")
+  following Follows[] @relation("UserFollows")
 }
 
 // Aggiungi questo nuovo modello completo
@@ -51,4 +54,16 @@ model Registration {
   registeredAt DateTime @default(now())
 
   @@unique([userId, eventId])
+}
+
+model Follows {
+  id           Int   @id @default(autoincrement())
+  followerId   Int
+  followingId  Int
+
+  follower     User  @relation("UserFollows", fields: [followerId], references: [id])
+  following    User  @relation("UserFollowing", fields: [followingId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([followerId, followingId])
 }

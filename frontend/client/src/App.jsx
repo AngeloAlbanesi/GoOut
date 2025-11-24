@@ -9,6 +9,7 @@ import { useAuth } from './context/AuthContext';
 import { userService } from './services/api';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicRoute } from './components/PublicRoute';
+import HomePage from './pages/HomePage';
 
 function Navbar() {
   const { isAuthenticated, logout } = useAuth();
@@ -66,6 +67,9 @@ function App() {
       <Navbar />
       <hr />
       <Routes>
+        {/*Rotta pubblica per la home page */}
+        <Route path='/' element={<HomePage />} />
+
         {/* Rotta Protetta per il Profilo (dal ramo main) */}
         <Route path='/profilo' element = {
           <ProtectedRoute> 

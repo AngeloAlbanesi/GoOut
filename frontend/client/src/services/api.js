@@ -29,3 +29,14 @@ export const eventService = {
     getMyEvents: () => apiClient.get('events/my-events'),
     getMyParticipations: () => apiClient.get('events/my-participations')
 };
+
+export async function fetchFutureEvents(page = 1, limit = 10) {
+    const res = await fetch(`/api/events/future?page=${page}&limit=${limit}`, {
+        headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || res.statusText);
+    }
+    return res.json(); // { page, limit, total, events: [...] }
+};
