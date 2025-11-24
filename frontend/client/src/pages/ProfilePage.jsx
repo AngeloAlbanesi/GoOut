@@ -24,11 +24,8 @@ function ProfilePage() {
 
         const fetchData = async () => {
             try {
-               
-                
                 const eventsRes = await eventService.getMyEvents();
                 setMyEvents(eventsRes.data);
-
                 const participationsRes = await eventService.getMyParticipations();
                 setParticipations(participationsRes.data);
             } catch (error) {
