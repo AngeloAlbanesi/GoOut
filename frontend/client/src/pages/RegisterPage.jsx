@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
-import { GoogleLogin } from '@react-oauth/google';
+import { useGoogleLogin } from '@react-oauth/google';
 
 function RegisterPage() {
     const [username, setUsername] = useState('');
@@ -16,6 +16,20 @@ function RegisterPage() {
     const [loading, setLoading] = useState(false);
 
     const navigate = useNavigate();
+
+    const googleLogin = useGoogleLogin({
+        onSuccess: (credentialResponse) => {
+            const cred = credentialResponse?.credential;
+            if (!cred) {
+                setError('Errore durante la registrazione con Google. Riprova.');
+                return;
+            }
+            navigate('/register/google', { state: { credential: cred } });
+        },
+        onError: () => {
+            setError('Errore durante la registrazione con Google. Riprova.');
+        }
+    });
 
     function parseApiError(err) {
         const data = err?.response?.data;
@@ -121,6 +135,7 @@ function RegisterPage() {
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-6">
+                            <style>{`.google-login-wrapper > div {display:block;} .google-login-wrapper button {width:100% !important; display:block !important;}`}</style>
                             <div>
                                 <label htmlFor="username" className="block text-sm font-semibold text-[#09090b] mb-2">Username</label>
                                 <input
@@ -202,32 +217,41 @@ function RegisterPage() {
                                 />
                             </div>
 
-                            <div className="flex items-center justify-between pt-6 border-t border-gray-100 mt-4">
-                                <div className="flex items-center gap-3">
-                                    <GoogleLogin
-                                        onSuccess={(credentialResponse) => {
-                                            const cred = credentialResponse?.credential;
-                                            if (!cred) {
-                                                setError('Errore durante la registrazione con Google. Riprova.');
-                                                return;
-                                            }
-                                            navigate('/register/google', { state: { credential: cred } });
-                                        }}
-                                        onError={() => {
-                                            setError('Errore durante la registrazione con Google. Riprova.');
-                                        }}
-                                    />
+                            <div className="flex items-center pt-6 border-t border-gray-100 mt-4">
+                                <div className="flex flex-col items-stretch gap-3 w-full">
+                                    <div className="google-login-wrapper w-full">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setError(null);
+                                                setSuccess(null);
+                                                googleLogin();
+                                            }}
+                                            aria-label="Registrati con Google"
+                                            className="w-full inline-flex items-center justify-center gap-4 py-2 px-3 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                        >
+                                            <span className="inline-flex items-center justify-center w-6 h-6">
+                                                <svg viewBox="0 0 533.5 544.3" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" aria-hidden="true">
+                                                    <path d="M533.5 278.4c0-18.5-1.5-37.2-4.7-55.2H272v104.6h146.9c-6.3 34-25.1 62.8-53.6 82v68.2h86.6c50.6-46.6 82-115.3 82-199.6z" fill="#4285F4"/>
+                                                    <path d="M272 544.3c72.6 0 133.6-24 178.1-65.1l-86.6-68.2c-24.1 16.2-55 25.7-91.5 25.7-70.4 0-130.1-47.5-151.5-111.4H32.6v69.9C76.8 484.5 167.6 544.3 272 544.3z" fill="#34A853"/>
+                                                    <path d="M120.5 326.3c-10.9-32.7-10.9-68 0-100.7V155.7H32.6c-39.6 79.6-39.6 173.6 0 253.2l87.9-69.9z" fill="#FBBC05"/>
+                                                    <path d="M272 107.7c39.5 0 75 13.6 102.9 40.3l77.1-77.1C405.6 24.6 344.6 0 272 0 167.6 0 76.8 59.8 32.6 155.7l87.9 69.9C141.9 155.2 201.6 107.7 272 107.7z" fill="#EA4335"/>
+                                                </svg>
+                                            </span>
+                                            <span>Registrati con Google</span>
+                                        </button>
+                                    </div>
 
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className={`inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-semibold rounded-xl text-white bg-[#09090b] hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all transform hover:-translate-y-0.5 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                        className={`w-full min-w-0 inline-flex justify-center py-2 px-3 border border-transparent shadow-sm text-sm font-semibold rounded-xl text-white bg-[#09090b] hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all transform hover:-translate-y-0.5 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     >
                                         {loading ? (
                                             <span className="flex items-center">
                                                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2-647z"></path>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
                                                 Elaborazione...
                                             </span>
@@ -236,7 +260,7 @@ function RegisterPage() {
                                         )}
                                     </button>
 
-                                    <button type="button" onClick={() => navigate('/login')} className="text-sm font-semibold text-gray-500 hover:text-[#09090b]">
+                                    <button type="button" onClick={() => navigate('/login')} className="w-full text-sm font-semibold text-gray-500 hover:text-[#09090b]">
                                         Ho già un account
                                     </button>
                                 </div>
