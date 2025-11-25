@@ -5,6 +5,7 @@ import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
 import CreateEventPage from './pages/CreateEventPage'; // Mantieni l'importazione
+import GoogleRegisterPage from './pages/GoogleRegisterPage';
 import { useAuth } from './context/AuthContext'; 
 import { userService } from './services/api';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -87,6 +88,7 @@ function App() {
         {/* Rotte Pubbliche per Login/Register (dal ramo main) */}
         <Route path='/login' element= {<PublicRoute> <LoginPage/> </PublicRoute>} />
         <Route path='/register' element= {<PublicRoute> <RegisterPage/></PublicRoute>} />
+        <Route path='/register/google' element= {<PublicRoute> <GoogleRegisterPage/></PublicRoute>} />
         
         {/* Rotte degli Eventi (Mantenute dal ramo Angelo-1, e protette) */}
         <Route path="/events/new" element={
