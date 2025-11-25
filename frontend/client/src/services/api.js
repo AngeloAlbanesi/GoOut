@@ -18,6 +18,8 @@ export const authService = {
 
 export const userService = {
     mieiDati: () => {return apiClient.get(`users/mieiDati`);}
+    ,
+    updateProfile: (data) => { return apiClient.patch('users/me', data); }
 };
 
 export const eventService = {

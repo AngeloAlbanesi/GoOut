@@ -112,6 +112,17 @@ function LoginPage() {
                             </div>
 
                             <div className="flex items-center justify-between pt-6 border-t border-gray-100 mt-4">
+                                <div className="flex items-center gap-3">
+                                <a href="http://localhost:3001/auth/google" className="inline-flex items-center py-3 px-4 border border-gray-200 shadow-sm text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50">
+                                    <svg className="h-5 w-5 mr-2" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                                        <path fill="#4285F4" d="M24 9.5c3.9 0 7.1 1.4 9.5 3.3l7.1-7.1C36.7 2.8 30.7 0 24 0 14.7 0 6.9 5.3 3 13.1l8 6.2C12.9 13 17.8 9.5 24 9.5z" />
+                                        <path fill="#34A853" d="M46.5 24c0-1.6-.1-2.7-.4-3.9H24v7.4h12.6c-.6 3.2-2.5 5.9-5.3 7.7l8 6.2C44.6 37.1 46.5 31.9 46.5 24z" />
+                                        <path fill="#FBBC05" d="M10.9 28.4c-.8-2.2-1.3-4.5-1.3-6.9 0-2.4.5-4.7 1.3-6.9l-8-6.2C1.3 13 0 18.3 0 24s1.3 11 3.9 15.6l7-6.2z" />
+                                        <path fill="#EA4335" d="M24 48c6.7 0 12.7-2.2 17.1-6l-8-6.2c-2.4 1.7-5.4 2.7-9.1 2.7-6.2 0-11.1-3.5-13.1-8.6l-8 6.2C6.9 42.7 14.7 48 24 48z" />
+                                    </svg>
+                                    Accedi con Google
+                                </a>
+
                                 <button
                                     type="submit"
                                     disabled={loading}
@@ -133,6 +144,7 @@ function LoginPage() {
                                 <button type="button" onClick={() => navigate('/register')} className="text-sm font-semibold text-gray-500 hover:text-[#09090b]">
                                     Registrati
                                 </button>
+                                </div>
                             </div>
                         </form>
                     </div>

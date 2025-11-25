@@ -5,6 +5,18 @@ const jwt = require("jsonwebtoken");
 const { createUser, findByEmail,updateUserRefreshToken, freeUsername, findByUsername} = require('../models/userModel.js');
 const { path } = require('express/lib/application.js');
 
+// Server-side password validation helper
+function validatePasswordServer(pw) {
+    const errors = [];
+    const minLength = 10; // keep same threshold as frontend
+    if (!pw || pw.length < minLength) errors.push(`La password deve essere di almeno ${minLength} caratteri.`);
+    if (!/[A-Z]/.test(pw)) errors.push('Deve contenere almeno una lettera maiuscola.');
+    if (!/[a-z]/.test(pw)) errors.push('Deve contenere almeno una lettera minuscola.');
+    if (!/[0-9]/.test(pw)) errors.push('Deve contenere almeno una cifra.');
+    if (!/[^A-Za-z0-9]/.test(pw)) errors.push('Deve contenere almeno un carattere speciale.');
+    return errors;
+}
+
 async function register(req, res) {
     const { email, password, username, dateOfBirth } = req.body;
 
@@ -37,6 +49,12 @@ async function register(req, res) {
         return res.status(409).json({ error: "L'email " + email + " è collegata ad un account esistente", code: 409, status: "conflict" });
     }
 
+    // Server-side password validation
+    const pwErrors = validatePasswordServer(password);
+    if (pwErrors.length) {
+        return res.status(400).json({ error: 'Password non conforme', detail: pwErrors.join(' | '), code: 400, status: 'bad request' });
+    }
+
     try {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
@@ -47,7 +65,9 @@ async function register(req, res) {
         return res.status(201).json({ messaggio: "Utente creato con successo", code: 201, status: "created" });
 
     } catch (err) {
-        return res.status(500).json({ errore: "Errore Interno creazione utente", code: 500, status: "internal server error" });
+        // try to extract more detail if available
+        const detail = err?.message || (err?.response && JSON.stringify(err.response.data)) || String(err);
+        return res.status(500).json({ errore: "Errore Interno creazione utente", detail, code: 500, status: "internal server error" });
     }
 
 }
