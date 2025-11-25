@@ -4,87 +4,103 @@ const prisma = new PrismaClient();
 
 
 //creazione di un nuovo utente sul DB
-async function createUser(email,passwordHash, username, dateOfBirth) {
-  const user = {
-    email: email,
-    passwordHash: passwordHash,
-    username: username,
-    dateOfBirth: dateOfBirth
-  };
-  await prisma.user.create({ data: user });
-  return 
+async function createUser(email, passwordHash, username, dateOfBirth) {
+    const user = {
+        email: email,
+        passwordHash: passwordHash,
+        username: username,
+        dateOfBirth: dateOfBirth
+    };
+    await prisma.user.create({ data: user });
+    return
 }
 
 //restituisce un utente data un email
 async function findByEmail(email) {
-  return await prisma.user.findUnique({
-    where: {
-      email: email,
-    },
-  });
+    return await prisma.user.findUnique({
+        where: {
+            email: email,
+        },
+    });
 }
 
 //Restituisce un utente dato un id
-async function findById(id){
-  return await prisma.user.findUnique({
-    where:{
-      id:id,
-    },
-  });
+async function findById(id) {
+    return await prisma.user.findUnique({
+        where: {
+            id: id,
+        },
+    });
 }
 
-async function findByUsername(username){
-  return await prisma.user.findUnique({
-    where:{
-      username:username,
-    },
-  });
+async function findByUsername(username) {
+    return await prisma.user.findUnique({
+        where: {
+            username: username,
+        },
+    });
 }
 
 //restituisce false se username gia usato, true se è "libero"
-async function freeUsername (username){
-  const user = await prisma.user.findUnique({
-    where: {
-      username: username
-    },
-  });
-  if(user){
-    return false;
-  }else{
-    return true;
-  }
+async function freeUsername(username) {
+    const user = await prisma.user.findUnique({
+        where: {
+            username: username
+        },
+    });
+    if (user) {
+        return false;
+    } else {
+        return true;
+    }
 }
 
 
-async function updateUser(id,username, bio, profilePictureUrl){
+async function updateUser(id, username, bio, profilePictureUrl, dateOfBirth) {
+    const data = {};
+    if (username !== undefined) data.username = username;
+    if (bio !== undefined) data.bio = bio;
+    if (profilePictureUrl !== undefined) data.profilePictureUrl = profilePictureUrl;
+    if (dateOfBirth !== undefined) data.dateOfBirth = dateOfBirth;
 
-  return await prisma.user.update({
-      where:{
-        id:id,
-      },
-      data: {
-        username:username,
-        bio:bio,
-        profilePictureUrl:profilePictureUrl
-      }
-    }); 
+    return await prisma.user.update({
+        where: {
+            id: id,
+        },
+        data: data
+    });
+}
 
-  }
+async function updateUserProfilePicture(id, profilePictureUrl) {
+    return await prisma.user.update({
+        where: { id: id },
+        data: { profilePictureUrl: profilePictureUrl }
+    });
+}
+
+async function updateUserPassword(id, passwordHash) {
+    return await prisma.user.update({
+        where: { id: id },
+        data: { passwordHash: passwordHash }
+    });
+}
 
 async function updateUserRefreshToken(userId, refreshToken) {
-  return await prisma.user.update({
-    where: { id: userId },
-    data: { refreshToken: refreshToken },
-  });
+    return await prisma.user.update({
+        where: { id: userId },
+        data: { refreshToken: refreshToken },
+    });
 }
 
 
 module.exports = {
-  createUser,
-  findByEmail,
-  findById,
-  freeUsername,
-  updateUser,
-  findByUsername,
-  updateUserRefreshToken
+    createUser,
+    findByEmail,
+    findById,
+    freeUsername,
+    updateUser,
+    findByUsername,
+    updateUserRefreshToken,
+    updateUserProfilePicture,
+    updateUserPassword
 };

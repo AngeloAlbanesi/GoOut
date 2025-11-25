@@ -1,10 +1,21 @@
 //routes/userRoutes.js
-const express = require('express')
-const router = express.Router()
+const express = require('express');
+const router = express.Router();
 const isAuthenticated = require('../middleware/isAuthenticated.js');
-const userController = require('../controllers/userController')
-router.patch('/me',isAuthenticated,userController.updateUserProfile);
-router.get('/mieiDati',isAuthenticated,userController.getUserProfile);
+const userController = require('../controllers/userController');
+const upload = require('../middleware/uploadAvatar');
+
+// Profilo utente
+router.get('/mieiDati', isAuthenticated, userController.getUserProfile);
+router.patch('/me', isAuthenticated, userController.updateUserProfile);
+
+// Avatar
+router.post('/me/avatar', isAuthenticated, upload.single('avatar'), userController.uploadAvatar);
+router.delete('/me/avatar', isAuthenticated, userController.removeAvatar);
+
+// Password
+router.patch('/me/password', isAuthenticated, userController.changePassword);
+
 module.exports = {
     router
 }
