@@ -31,12 +31,6 @@ export const eventService = {
 };
 
 export async function fetchFutureEvents(page = 1, limit = 10) {
-    const res = await fetch(`/api/events/future?page=${page}&limit=${limit}`, {
-        headers: { 'Content-Type': 'application/json' }
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || res.statusText);
-    }
-    return res.json(); // { page, limit, total, events: [...] }
+    const res = await apiClient.get('events/future', { params: { page, limit } });
+    return res.data; // { page, limit, total, events: [...] }
 };

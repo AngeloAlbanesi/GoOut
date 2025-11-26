@@ -23,13 +23,24 @@ export default function HomePage() {
       }
       setEvents(prev => (p === 1 ? data.events : [...prev, ...data.events]));
       const fetchedCount = data.events.length;
-      const total = data.total ?? (data.page && data.limit ? data.page * data.limit : null);
-      // decide se ci sono altre pagine
+
+      // non inferire un "total" da page*limit: usare solo data.total se fornito
+      const total = (typeof data.total === 'number') ? data.total : null;
+      const currentLoaded = (p === 1) ? fetchedCount : events.length + fetchedCount;
+
+      let newHasMore;
       if (typeof total === 'number') {
-        setHasMore((prev) => prev && prev && (events.length + fetchedCount) < total);
+        newHasMore = currentLoaded < total;
       } else {
-        setHasMore(fetchedCount === limit); // se riempi il page-size probabilmente ci sono altri
+        // se il server non dà total, consideriamo che ci siano altre pagine solo se
+        // la pagina è "piena" (fetchedCount === limit)
+        newHasMore = fetchedCount === limit && fetchedCount > 0;
       }
+
+      // guardia esplicita: se non è stato restituito nessun evento, non continuare a fare fetch
+      if (fetchedCount === 0) newHasMore = false;
+
+      setHasMore(newHasMore);
     } catch (err) {
       setError(err.message || 'Errore nel caricamento');
     } finally {

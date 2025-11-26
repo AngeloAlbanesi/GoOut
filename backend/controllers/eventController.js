@@ -198,20 +198,36 @@ async function getMyParticipations(req, res) {
     }
 }
 
-//Ottieni tutti gli eventi futuri
-//Potenziale implementazione di impaginazione dei risultati
+//Ottieni tutti gli eventi futuri impaginati
 async function getFutureEvents(req, res) {
     try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.max(1, parseInt(req.query.limit) || 10);
+        const skip = (page - 1) * limit;
         const currentDate = new Date();
-        const events = await prisma.event.findMany({
-            where: {
-                date: {
-                    gt: currentDate
-                }
-            },
-            orderBy: { date: 'asc' }
+
+        const total = await prisma.event.count({
+            where: { date: { gt: currentDate } }
         });
-        res.json(events);
+
+        const events = await prisma.event.findMany({
+            where: { date: { gt: currentDate } },
+            orderBy: { date: 'asc' },
+            skip,
+            take: limit,
+            include: {
+                creator: { select: { username: true } },
+                _count: { select: { registrations: true } }
+            }
+        });
+
+        // espone participantsCount
+        const mapped = events.map(e => {
+            const { _count, ...rest } = e;
+            return { ...rest, participantsCount: _count?.registrations ?? 0 };
+        });
+
+        res.json({ page, limit, total, events: mapped });
     } catch (error) {
         console.error("Errore nel recupero degli eventi futuri:", error);
         res.status(500).json({ error: 'Errore interno del server.' });
