@@ -301,7 +301,17 @@ async function registerWithGoogle(req, res) {
 
     } catch (err) {
         console.error('Errore registrazione con Google:', err);
-        return res.status(401).json({ error: "Token Google non valido", code: 401, status: "unauthorized" });
+        console.error('Dettagli errore:', {
+            message: err.message,
+            stack: err.stack,
+            credential: credential?.substring(0, 20) + '...'
+        });
+        return res.status(401).json({ 
+            error: "Token Google non valido", 
+            detail: err.message,
+            code: 401, 
+            status: "unauthorized" 
+        });
     }
 }
 
@@ -375,7 +385,17 @@ async function loginWithGoogle(req, res) {
 
     } catch (err) {
         console.error('Errore login Google:', err);
-        return res.status(401).json({ error: "Token Google non valido", code: 401, status: "unauthorized" });
+        console.error('Dettagli errore:', {
+            message: err.message,
+            stack: err.stack,
+            credential: credential?.substring(0, 20) + '...'
+        });
+        return res.status(401).json({ 
+            error: "Token Google non valido", 
+            detail: err.message,
+            code: 401, 
+            status: "unauthorized" 
+        });
     }
 }
 

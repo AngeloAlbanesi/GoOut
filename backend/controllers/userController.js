@@ -1,9 +1,9 @@
 //userController.js
-const {findById, freeUsername,updateUser } = require('../models/userModel.js');
+const { findById, freeUsername, updateUser, searchUsers: searchUsersModel } = require('../models/userModel.js');
 
 async function getUserProfile (req,res){
     try{
-    const user = await findById(req.id);
+        const user = await findById(req.id);
         return res.status(200).json({
             data:{
                 id : user.id,
@@ -43,7 +43,29 @@ async function updateUserProfile(req,res){
     }
 }
 
+// Ricerca altri utenti (esclude l'utente loggato)
+async function searchUsers(req, res) {
+    const { q } = req.query;
+    const term = q ? q.trim() : '';
+
+    try {
+        const users = await searchUsersModel(term, req.id);
+        const safeUsers = users.map(u => ({
+            id: u.id,
+            username: u.username,
+            bio: u.bio,
+            profilePictureUrl: u.profilePictureUrl
+        }));
+
+        return res.status(200).json(safeUsers);
+    } catch (err) {
+        console.error('Errore ricerca utenti:', err);
+        return res.status(500).json({ errore: "Internal server error" });
+    }
+}
+
 module.exports={
     getUserProfile,
-    updateUserProfile
+    updateUserProfile,
+    searchUsers
 }

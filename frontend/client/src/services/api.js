@@ -20,7 +20,8 @@ export const authService = {
 export const userService = {
     mieiDati: () => {return apiClient.get(`users/mieiDati`);}
     ,
-    updateProfile: (data) => { return apiClient.patch('users/me', data); }
+    updateProfile: (data) => { return apiClient.patch('users/me', data); },
+    searchUsers: (query) => { return apiClient.get('users/search', { params: { q: query } }); }
 };
 
 export const eventService = {

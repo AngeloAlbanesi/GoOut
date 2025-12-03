@@ -69,7 +69,46 @@ async function updateUser(id,username, bio, profilePictureUrl){
       }
     }); 
 
+}
+
+// Cerca altri utenti per username/email, escludendo l'utente corrente
+async function searchUsers(term, currentUserId) {
+  const userId = Number(currentUserId);
+
+  const where = {
+    // escludo sempre l'utente corrente se l'id è valido
+    ...(Number.isFinite(userId) ? { id: { not: userId } } : {})
+  };
+
+  const trimmed = term ? term.trim() : '';
+
+  if (trimmed) {
+    where.OR = [
+      {
+        username: {
+          contains: trimmed
+        }
+      },
+      {
+        email: {
+          contains: trimmed
+        }
+      }
+    ];
   }
+
+  return await prisma.user.findMany({
+    where,
+    select: {
+      id: true,
+      username: true,
+      bio: true,
+      profilePictureUrl: true
+    },
+    orderBy: { username: 'asc' },
+    take: 20
+  });
+}
 
 async function updateUserRefreshToken(userId, refreshToken) {
   return await prisma.user.update({
@@ -86,5 +125,6 @@ module.exports = {
   freeUsername,
   updateUser,
   findByUsername,
-  updateUserRefreshToken
+  updateUserRefreshToken,
+  searchUsers
 };

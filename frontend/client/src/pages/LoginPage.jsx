@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { useGoogleLogin } from '@react-oauth/google';
+import { GoogleLogin } from '@react-oauth/google';
 
 function LoginPage() {
     const [user, setUser] = useState('');
@@ -14,28 +14,29 @@ function LoginPage() {
 
     const navigate = useNavigate();
     const authTools = useAuth();
-    const googleLogin = useGoogleLogin({
-        onSuccess: async (credentialResponse) => {
-            setError(null);
-            setSuccess(null);
-            setLoading(true);
-            try {
-                const response = await authService.loginWithGoogle(credentialResponse.credential);
-                const userData = response.data.data;
-                authTools.setUser(userData);
-                setSuccess('Login con Google effettuato correttamente!');
-                navigate('/');
-            } catch (err) {
-                console.error('Errore durante il login con Google: ', err);
-                setError(parseApiError(err));
-            } finally {
-                setLoading(false);
-            }
-        },
-        onError: () => {
-            setError('Errore durante il login con Google. Riprova.');
+
+    const handleGoogleSuccess = async (credentialResponse) => {
+        console.log('Google credential response (login):', credentialResponse);
+        setError(null);
+        setSuccess(null);
+        setLoading(true);
+        try {
+            const response = await authService.loginWithGoogle(credentialResponse.credential);
+            const userData = response.data.data;
+            authTools.setUser(userData);
+            setSuccess('Login con Google effettuato correttamente!');
+            navigate('/');
+        } catch (err) {
+            console.error('Errore durante il login con Google: ', err);
+            setError(parseApiError(err));
+        } finally {
+            setLoading(false);
         }
-    });
+    };
+
+    const handleGoogleError = () => {
+        setError('Errore durante il login con Google. Riprova.');
+    };
     function parseApiError(err) {
         const data = err?.response?.data;
         if (!data) return err?.message || String(err);
@@ -137,27 +138,16 @@ function LoginPage() {
 
                             <div className="flex items-center pt-6 border-t border-gray-100 mt-4">
                                 <div className="flex flex-col items-stretch gap-3 w-full">
-                                    <div className="google-login-wrapper w-full">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setError(null);
-                                                setSuccess(null);
-                                                googleLogin();
-                                            }}
-                                            aria-label="Accedi con Google"
-                                            className="w-full inline-flex items-center justify-center gap-4 py-2 px-3 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
-                                        >
-                                            <span className="inline-flex items-center justify-center w-6 h-6">
-                                                <svg viewBox="0 0 533.5 544.3" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" aria-hidden="true">
-                                                    <path d="M533.5 278.4c0-18.5-1.5-37.2-4.7-55.2H272v104.6h146.9c-6.3 34-25.1 62.8-53.6 82v68.2h86.6c50.6-46.6 82-115.3 82-199.6z" fill="#4285F4"/>
-                                                    <path d="M272 544.3c72.6 0 133.6-24 178.1-65.1l-86.6-68.2c-24.1 16.2-55 25.7-91.5 25.7-70.4 0-130.1-47.5-151.5-111.4H32.6v69.9C76.8 484.5 167.6 544.3 272 544.3z" fill="#34A853"/>
-                                                    <path d="M120.5 326.3c-10.9-32.7-10.9-68 0-100.7V155.7H32.6c-39.6 79.6-39.6 173.6 0 253.2l87.9-69.9z" fill="#FBBC05"/>
-                                                    <path d="M272 107.7c39.5 0 75 13.6 102.9 40.3l77.1-77.1C405.6 24.6 344.6 0 272 0 167.6 0 76.8 59.8 32.6 155.7l87.9 69.9C141.9 155.2 201.6 107.7 272 107.7z" fill="#EA4335"/>
-                                                </svg>
-                                            </span>
-                                            <span>Accedi con Google</span>
-                                        </button>
+                                    <div className="google-login-wrapper w-full" onClick={() => { setError(null); setSuccess(null); }}>
+                                        <GoogleLogin
+                                            onSuccess={handleGoogleSuccess}
+                                            onError={handleGoogleError}
+                                            text="signin_with"
+                                            shape="rectangular"
+                                            theme="outline"
+                                            size="large"
+                                            width="100%"
+                                        />
                                     </div>
 
                                     <button
