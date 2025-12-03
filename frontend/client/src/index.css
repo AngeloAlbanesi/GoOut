@@ -1,11 +1,11 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
 /* Personalizza i colori */
 @theme {
-  --color-primary: #09090b;
-  --color-secondary: #ffffff;
-  --color-accent: #fbbf24;
+    --color-primary: #09090b;
+    --color-secondary: #ffffff;
+    --color-accent: #fbbf24;
 }
 
 :root {

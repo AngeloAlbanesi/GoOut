@@ -31,7 +31,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes.router);
+app.use('/api/users', userRoutes);
 app.use('/api/events', eventRoutes);
 
 const PORT = process.env.PORT || 3001;

@@ -1,187 +1,147 @@
-//models/usermodels.js
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+//routes/userRoutes.js
+const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
+const isAuthenticated = require('../middleware/isAuthenticated.js');
+const uploadAvatar = require('../middleware/uploadAvatar.js');
+const { findById, updateUser, searchUsers, updateUserProfilePicture, updateUserPassword } = require('../models/userModel.js');
+const fs = require('fs');
+const path = require('path');
 
-
-//creazione di un nuovo utente sul DB
-async function createUser(email, passwordHash, username, dateOfBirth) {
-    const user = {
-        email: email,
-        passwordHash: passwordHash,
-        username: username,
-        dateOfBirth: dateOfBirth
-    };
-    await prisma.user.create({ data: user });
-    return;
-}
-
-//restituisce un utente data un email
-async function findByEmail(email) {
-    return await prisma.user.findUnique({
-        where: {
-            email: email,
-        },
-    });
-}
-
-//Restituisce un utente dato un id
-async function findById(id) {
-    return await prisma.user.findUnique({
-        where: {
-            id: id,
-        },
-    });
-}
-
-async function findByUsername(username) {
-    return await prisma.user.findUnique({
-        where: {
-            username: username,
-        },
-    });
-}
-
-//restituisce false se username gia usato, true se è "libero"
-async function freeUsername(username) {
-    const user = await prisma.user.findUnique({
-        where: {
-            username: username
-        },
-    });
-    if (user) {
-        return false;
-    } else {
-        return true;
+// GET /api/users/mieiDati - Ottiene i dati dell'utente autenticato
+router.get('/mieiDati', isAuthenticated, async (req, res) => {
+    try {
+        const user = await findById(req.id);
+        if (!user) {
+            return res.status(404).json({ error: 'Utente non trovato', code: 404 });
+        }
+        // Rimuovi il campo passwordHash dalla risposta
+        const { passwordHash, refreshToken, ...userData } = user;
+        return res.status(200).json(userData);
+    } catch (err) {
+        console.error('Errore nel recupero dei dati utente:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
     }
-}
+});
 
-
-async function updateUser(id, username, bio, profilePictureUrl, dateOfBirth) {
-    const data = {};
-    if (username !== undefined) data.username = username;
-    if (bio !== undefined) data.bio = bio;
-    if (profilePictureUrl !== undefined) data.profilePictureUrl = profilePictureUrl;
-    if (dateOfBirth !== undefined) data.dateOfBirth = dateOfBirth;
-
-    return await prisma.user.update({
-        where: {
-            id: id,
-        },
-        data: data
-    });
-}
-
-// Cerca altri utenti per username/email, escludendo l'utente corrente
-async function searchUsers(term, currentUserId) {
-    const userId = Number(currentUserId);
-
-    const where = {
-        // escludo sempre l'utente corrente se l'id è valido
-        ...(Number.isFinite(userId) ? { id: { not: userId } } : {})
-    };
-
-    const trimmed = term ? term.trim() : '';
-
-    if (trimmed) {
-        where.OR = [
-            {
-                username: {
-                    contains: trimmed
-                }
-            },
-            {
-                email: {
-                    contains: trimmed
-                }
-            }
-        ];
+// GET /api/users/search - Cerca utenti
+router.get('/search', isAuthenticated, async (req, res) => {
+    try {
+        const { q } = req.query;
+        const users = await searchUsers(q, req.id);
+        return res.status(200).json(users);
+    } catch (err) {
+        console.error('Errore nella ricerca utenti:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
     }
+});
 
-    return await prisma.user.findMany({
-        where,
-        select: {
-            id: true,
-            username: true,
-            bio: true,
-            profilePictureUrl: true
-        },
-        orderBy: { username: 'asc' },
-        take: 20
-    });
-}
+// PATCH /api/users/me - Aggiorna profilo utente
+router.patch('/me', isAuthenticated, async (req, res) => {
+    try {
+        const { username, bio, dateOfBirth } = req.body;
+        const updatedUser = await updateUser(req.id, username, bio, undefined, dateOfBirth ? new Date(dateOfBirth) : undefined);
+        const { passwordHash, refreshToken, ...userData } = updatedUser;
+        return res.status(200).json(userData);
+    } catch (err) {
+        console.error('Errore nell\'aggiornamento profilo:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
+    }
+});
 
-async function updateUserProfilePicture(id, profilePictureUrl) {
-    return await prisma.user.update({
-        where: { id: id },
-        data: { profilePictureUrl: profilePictureUrl }
-    });
-}
+// POST /api/users/me/avatar - Upload avatar
+router.post('/me/avatar', isAuthenticated, uploadAvatar.single('avatar'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'Nessun file caricato', code: 400 });
+        }
+        const profilePictureUrl = `/uploads/${req.file.filename}`;
 
-async function updateUserPassword(id, passwordHash) {
-    return await prisma.user.update({
-        where: { id: id },
-        data: { passwordHash: passwordHash }
-    });
-}
-
-async function updateUserRefreshToken(userId, refreshToken) {
-    return await prisma.user.update({
-        where: { id: userId },
-        data: { refreshToken: refreshToken },
-    });
-}
-
-// utile per operazioni di sola lettura (es. mostrare “Segui / Non segui” nella UI, conteggi, ecc.)
-async function isFollowing(followerId, followingId) {
-    return await prisma.follows.findUnique({
-        where: {
-            followerId_followingId: {
-                followerId: followerId,
-                followingId: followingId
+        // Recupera l'utente per eliminare la vecchia immagine se esiste
+        const user = await findById(req.id);
+        if (user && user.profilePictureUrl) {
+            const oldPath = path.join(__dirname, '..', user.profilePictureUrl);
+            if (fs.existsSync(oldPath)) {
+                fs.unlinkSync(oldPath);
             }
         }
-    });
-}
 
-async function followUser(followerId, followingId) {
-    if (followerId === followingId) throw new Error('SELF_FOLLOW');
-
-    const target = await prisma.user.findUnique({ where: { id: followingId } });
-    if (!target) throw new Error('TARGET_NOT_FOUND');
-
-    try {
-        return await prisma.follows.create({
-            data: { followerId, followingId }
-        });
+        const updatedUser = await updateUserProfilePicture(req.id, profilePictureUrl);
+        const { passwordHash, refreshToken, ...userData } = updatedUser;
+        return res.status(200).json(userData);
     } catch (err) {
-        if (err.code === 'P2002') throw new Error('ALREADY_FOLLOWING');
-        throw err;
+        console.error('Errore nell\'upload avatar:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
     }
-}
+});
 
-async function unfollowUser(followerId, followingId) {
+// DELETE /api/users/me/avatar - Rimuovi avatar
+router.delete('/me/avatar', isAuthenticated, async (req, res) => {
     try {
-        return await prisma.follows.delete({
-            where: { followerId_followingId: { followerId, followingId } }
-        });
+        const user = await findById(req.id);
+        if (user && user.profilePictureUrl) {
+            const oldPath = path.join(__dirname, '..', user.profilePictureUrl);
+            if (fs.existsSync(oldPath)) {
+                fs.unlinkSync(oldPath);
+            }
+        }
+        const updatedUser = await updateUserProfilePicture(req.id, null);
+        const { passwordHash, refreshToken, ...userData } = updatedUser;
+        return res.status(200).json(userData);
     } catch (err) {
-        if (err.code === 'P2025') throw new Error('FOLLOW_NOT_FOUND');
-        throw err;
+        console.error('Errore nella rimozione avatar:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
     }
+});
+
+// Server-side password validation helper
+function validatePasswordServer(pw) {
+    const errors = [];
+    const minLength = 10;
+    if (!pw || pw.length < minLength) errors.push(`La password deve essere di almeno ${minLength} caratteri.`);
+    if (!/[A-Z]/.test(pw)) errors.push('Deve contenere almeno una lettera maiuscola.');
+    if (!/[a-z]/.test(pw)) errors.push('Deve contenere almeno una lettera minuscola.');
+    if (!/[0-9]/.test(pw)) errors.push('Deve contenere almeno una cifra.');
+    if (!/[^A-Za-z0-9]/.test(pw)) errors.push('Deve contenere almeno un carattere speciale.');
+    return errors;
 }
 
-module.exports = {
-    createUser,
-    findByEmail,
-    findById,
-    freeUsername,
-    updateUser,
-    findByUsername,
-    updateUserRefreshToken,
-    searchUsers,
-    updateUserProfilePicture,
-    updateUserPassword,
-    isFollowing,
-    followUser,
-    unfollowUser
-};
+// PATCH /api/users/me/password - Cambia password
+router.patch('/me/password', isAuthenticated, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Password attuale e nuova password sono richieste', code: 400 });
+        }
+
+        const user = await findById(req.id);
+        if (!user) {
+            return res.status(404).json({ error: 'Utente non trovato', code: 404 });
+        }
+
+        // Verifica password attuale
+        const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Password attuale non corretta', code: 401 });
+        }
+
+        // Valida nuova password
+        const pwErrors = validatePasswordServer(newPassword);
+        if (pwErrors.length) {
+            return res.status(400).json({ error: 'Password non conforme', detail: pwErrors.join(' | '), code: 400 });
+        }
+
+        // Hash e salva nuova password
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(newPassword, salt);
+        await updateUserPassword(req.id, passwordHash);
+
+        return res.status(200).json({ message: 'Password aggiornata con successo' });
+    } catch (err) {
+        console.error('Errore nel cambio password:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
+    }
+});
+
+module.exports = router;

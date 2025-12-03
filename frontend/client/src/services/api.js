@@ -9,12 +9,70 @@ const apiClient = axios.create({
     withCredentials: true
 });
 
+// Flag per evitare loop infiniti di refresh
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
+// Interceptor per gestire automaticamente il refresh del token
+apiClient.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
+
+        // Se l'errore è 401 e non abbiamo già provato a refreshare
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            if (isRefreshing) {
+                // Se stiamo già facendo il refresh, mettiamo la richiesta in coda
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                }).then(() => {
+                    return apiClient(originalRequest);
+                }).catch(err => {
+                    return Promise.reject(err);
+                });
+            }
+
+            originalRequest._retry = true;
+            isRefreshing = true;
+
+            try {
+                // Tenta di rinnovare il token
+                await axios.post('http://localhost:3001/api/auth/refresh-token', {}, {
+                    withCredentials: true
+                });
+
+                processQueue(null);
+                return apiClient(originalRequest);
+            } catch (refreshError) {
+                processQueue(refreshError);
+                // Il refresh è fallito, l'utente deve rifare il login
+                return Promise.reject(refreshError);
+            } finally {
+                isRefreshing = false;
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
+
 
 export const authService = {
     register: (userData) => { return apiClient.post('auth/register', userData); },
     login: (loginData) => { return apiClient.post('auth/login', loginData); },
     logout: () => { return apiClient.post('auth/logout'); },
-    
+
     // Google Auth (da HEAD)
     loginWithGoogle: (credential) => { return apiClient.post('auth/google', { credential }); },
     registerWithGoogle: (payload) => { return apiClient.post('auth/google/register', payload); },
@@ -23,9 +81,9 @@ export const authService = {
 export const userService = {
     mieiDati: () => { return apiClient.get(`users/mieiDati`); },
     getProfile: () => { return apiClient.get('users/mieiDati'); }, // Aggiunto per compatibilità col branch feature
-    
+
     updateProfile: (data) => { return apiClient.patch('users/me', data); },
-    
+
     // Search (da HEAD)
     searchUsers: (query) => { return apiClient.get('users/search', { params: { q: query } }); },
 
