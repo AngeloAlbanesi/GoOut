@@ -1,23 +1,46 @@
 //services/api.js
 import axios from 'axios';
 
-const apiClient = axios.create({ baseURL: 'http://localhost:3001/api',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                withCredentials:true 
+const apiClient = axios.create({
+    baseURL: 'http://localhost:3001/api',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    withCredentials: true
 });
 
 
 export const authService = {
-    register: (userData) => { return apiClient.post('auth/register', userData);},
-    login: (loginData) => { return apiClient.post('auth/login',loginData);},
-    logout: () =>   {return apiClient.post ('auth/logout'); }, 
+    register: (userData) => { return apiClient.post('auth/register', userData); },
+    login: (loginData) => { return apiClient.post('auth/login', loginData); },
+    logout: () => { return apiClient.post('auth/logout'); },
     
+    // Google Auth (da HEAD)
+    loginWithGoogle: (credential) => { return apiClient.post('auth/google', { credential }); },
+    registerWithGoogle: (payload) => { return apiClient.post('auth/google/register', payload); },
 };
 
 export const userService = {
-    mieiDati: () => {return apiClient.get(`users/mieiDati`);}
+    mieiDati: () => { return apiClient.get(`users/mieiDati`); },
+    getProfile: () => { return apiClient.get('users/mieiDati'); }, // Aggiunto per compatibilità col branch feature
+    
+    updateProfile: (data) => { return apiClient.patch('users/me', data); },
+    
+    // Search (da HEAD)
+    searchUsers: (query) => { return apiClient.get('users/search', { params: { q: query } }); },
+
+    // Avatar & Password (da branch feature)
+    uploadAvatar: (file) => {
+        const formData = new FormData();
+        formData.append('avatar', file);
+        return apiClient.post('users/me/avatar', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    },
+    removeAvatar: () => { return apiClient.delete('users/me/avatar'); },
+    changePassword: (data) => { return apiClient.patch('users/me/password', data); },
 };
 
 export const eventService = {
