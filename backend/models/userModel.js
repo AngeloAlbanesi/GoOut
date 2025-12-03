@@ -131,6 +131,44 @@ async function updateUserRefreshToken(userId, refreshToken) {
     });
 }
 
+// utile per operazioni di sola lettura (es. mostrare “Segui / Non segui” nella UI, conteggi, ecc.)
+async function isFollowing(followerId, followingId) {
+    return await prisma.follows.findUnique({
+        where: {
+            followerId_followingId: {
+                followerId: followerId,
+                followingId: followingId
+            }
+        }
+    });
+}
+
+async function followUser(followerId, followingId) {
+    if (followerId === followingId) throw new Error('SELF_FOLLOW');
+
+    const target = await prisma.user.findUnique({ where: { id: followingId } });
+    if (!target) throw new Error('TARGET_NOT_FOUND');
+
+    try {
+        return await prisma.follows.create({
+            data: { followerId, followingId }
+        });
+    } catch (err) {
+        if (err.code === 'P2002') throw new Error('ALREADY_FOLLOWING');
+        throw err;
+    }
+}
+
+async function unfollowUser(followerId, followingId) {
+    try {
+        return await prisma.follows.delete({
+            where: { followerId_followingId: { followerId, followingId } }
+        });
+    } catch (err) {
+        if (err.code === 'P2025') throw new Error('FOLLOW_NOT_FOUND');
+        throw err;
+    }
+}
 
 module.exports = {
     createUser,
@@ -142,5 +180,8 @@ module.exports = {
     updateUserRefreshToken,
     searchUsers,
     updateUserProfilePicture,
-    updateUserPassword
+    updateUserPassword,
+    isFollowing,
+    followUser,
+    unfollowUser
 };

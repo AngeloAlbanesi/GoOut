@@ -52,3 +52,8 @@ export const eventService = {
     getMyEvents: () => apiClient.get('events/my-events'),
     getMyParticipations: () => apiClient.get('events/my-participations')
 };
+
+export async function fetchFutureEvents(page = 1, limit = 10) {
+    const res = await apiClient.get('events/future', { params: { page, limit } });
+    return res.data; // { page, limit, total, events: [...] }
+};

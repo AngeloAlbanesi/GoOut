@@ -159,6 +159,7 @@ async function cancelParticipation(req, res) {
 }
 
 // Ottieni eventi creati dall'utente loggato
+//Potenziale implementazione di impaginazione dei risultati
 async function getMyEvents(req, res) {
     try {
         const userId = req.id;
@@ -174,6 +175,7 @@ async function getMyEvents(req, res) {
 }
 
 // Ottieni eventi a cui l'utente partecipa
+//Potenziale implementazione di impaginazione dei risultati
 async function getMyParticipations(req, res) {
     try {
         const userId = req.id;
@@ -196,6 +198,88 @@ async function getMyParticipations(req, res) {
     }
 }
 
+//Ottieni tutti gli eventi futuri impaginati
+async function getFutureEvents(req, res) {
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.max(1, parseInt(req.query.limit) || 10);
+        const skip = (page - 1) * limit;
+        const currentDate = new Date();
+
+        const total = await prisma.event.count({
+            where: { date: { gt: currentDate } }
+        });
+
+        const events = await prisma.event.findMany({
+            where: { date: { gt: currentDate } },
+            orderBy: { date: 'asc' },
+            skip,
+            take: limit,
+            include: {
+                creator: { select: { username: true } },
+                _count: { select: { registrations: true } }
+            }
+        });
+
+        // espone participantsCount
+        const mapped = events.map(e => {
+            const { _count, ...rest } = e;
+            return { ...rest, participantsCount: _count?.registrations ?? 0 };
+        });
+
+        res.json({ page, limit, total, events: mapped });
+    } catch (error) {
+        console.error("Errore nel recupero degli eventi futuri:", error);
+        res.status(500).json({ error: 'Errore interno del server.' });
+    }
+}
+
+//Ottieni eventi creati dagli utenti seguiti
+//Potenziale implementazione di impaginazione dei risultati
+async function getEventsFromFollowedUsers(req, res) {
+    try {
+        const userId = req.id;
+        // Recupera gli ID degli utenti seguiti
+        const followedUsers = await prisma.following.findMany({
+            where: { followerId: userId },
+            select: { followingId: true }
+        });
+
+        const followedUserIds = followedUsers.map(follow => follow.followingId);
+
+        // Recupera gli eventi creati dagli utenti seguiti
+        const events = await prisma.event.findMany({
+            where: { creatorId: { in: followedUserIds } },
+            orderBy: { date: 'asc' }
+        });
+
+        res.json(events);
+    } catch (error) {
+        console.error("Errore nel recupero degli eventi degli utenti seguiti:", error);
+        res.status(500).json({ error: 'Errore interno del server.' });
+    }
+}
+
+//Ottieni dettagli di un evento
+async function getEventDetails(req, res) {
+    try {
+        const eventId = parseInt(req.params.id);
+        const event = await prisma.event.findUnique({
+            where: { id: eventId },
+            include: { creator: { select: { username: true } } }
+        });
+
+        if (!event) {
+            return res.status(404).json({ error: 'Evento non trovato.' });
+        }
+
+        res.json(event);
+    } catch (error) {
+        console.error("Errore nel recupero dei dettagli dell'evento:", error);
+        res.status(500).json({ error: 'Errore interno del server.' });
+    }
+}
+
 module.exports = {
     createEvent,
     updateEvent,
@@ -203,5 +287,8 @@ module.exports = {
     participateEvent,
     cancelParticipation,
     getMyEvents,
-    getMyParticipations
+    getMyParticipations,
+    getFutureEvents,
+    getEventsFromFollowedUsers,
+    getEventDetails
 };
