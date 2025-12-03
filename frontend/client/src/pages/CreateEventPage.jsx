@@ -65,7 +65,7 @@ function CreateEventPage() {
             } else {
                 await eventService.createEvent(formData);
             }
-            navigate('/profile');
+            navigate('/profilo');
         } catch (err) {
             console.error("Errore salvataggio evento:", err);
             setError(err.response?.data?.error || 'Si è verificato un errore.');

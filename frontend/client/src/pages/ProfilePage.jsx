@@ -7,7 +7,7 @@ const API_BASE_URL = 'http://localhost:3001';
 
 function ProfilePage() {
 
-    const { user, setUser } = useAuth();
+    const { user, setUser, loading: authLoading } = useAuth();
 
     const [myEvents, setMyEvents] = useState([]);
     const [participations, setParticipations] = useState([]);
@@ -46,6 +46,10 @@ function ProfilePage() {
     const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
 
     useEffect(() => {
+        // Aspetta che l'AuthContext abbia finito di verificare l'autenticazione
+        if (authLoading) {
+            return;
+        }
 
         if (!user) {
             navigate('/login');
@@ -61,10 +65,10 @@ function ProfilePage() {
                 ]);
                 setMyEvents(eventsRes.data);
                 setParticipations(participationsRes.data);
-                setProfileData(profileRes.data.data);
+                setProfileData(profileRes.data);
 
                 // Inizializza form con i dati del profilo
-                const profile = profileRes.data.data;
+                const profile = profileRes.data;
                 setFormData({
                     username: profile.username || '',
                     dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.split('T')[0] : ''
@@ -77,7 +81,7 @@ function ProfilePage() {
         };
 
         fetchData();
-    }, [navigate, user]);
+    }, [navigate, user, authLoading]);
 
     // Validazione real-time per dati personali
     const validateProfileField = (name, value) => {
@@ -129,8 +133,8 @@ function ProfilePage() {
                 dateOfBirth: formData.dateOfBirth
             });
 
-            setProfileData(response.data.data);
-            setUser({ ...user, username: response.data.data.username });
+            setProfileData(response.data);
+            setUser({ ...user, username: response.data.username });
             setIsEditingProfile(false);
             setSaveMessage({ type: 'success', text: 'Profilo aggiornato con successo!' });
             setTimeout(() => setSaveMessage({ type: '', text: '' }), 3000);
@@ -172,7 +176,7 @@ function ProfilePage() {
         setUploadLoading(true);
         try {
             const response = await userService.uploadAvatar(selectedFile);
-            setProfileData(response.data.data);
+            setProfileData(response.data);
             setIsEditingImage(false);
             setSelectedFile(null);
             setImagePreview(null);
@@ -192,7 +196,7 @@ function ProfilePage() {
         setUploadLoading(true);
         try {
             const response = await userService.removeAvatar();
-            setProfileData(response.data.data);
+            setProfileData(response.data);
             setSaveMessage({ type: 'success', text: 'Immagine rimossa con successo!' });
             setTimeout(() => setSaveMessage({ type: '', text: '' }), 3000);
         } catch (error) {
@@ -309,7 +313,7 @@ function ProfilePage() {
     };
 
 
-    if (!user || loading) {
+    if (authLoading || !user || loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-white">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#09090b]"></div>
