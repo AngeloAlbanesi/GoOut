@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 
 function LoginPage() {
     const [user, setUser] = useState('');
@@ -13,6 +14,29 @@ function LoginPage() {
 
     const navigate = useNavigate();
     const authTools = useAuth();
+
+    const handleGoogleSuccess = async (credentialResponse) => {
+        console.log('Google credential response (login):', credentialResponse);
+        setError(null);
+        setSuccess(null);
+        setLoading(true);
+        try {
+            const response = await authService.loginWithGoogle(credentialResponse.credential);
+            const userData = response.data.data;
+            authTools.setUser(userData);
+            setSuccess('Login con Google effettuato correttamente!');
+            navigate('/');
+        } catch (err) {
+            console.error('Errore durante il login con Google: ', err);
+            setError(parseApiError(err));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleError = () => {
+        setError('Errore durante il login con Google. Riprova.');
+    };
     function parseApiError(err) {
         const data = err?.response?.data;
         if (!data) return err?.message || String(err);
@@ -85,6 +109,7 @@ function LoginPage() {
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-6">
+                            <style>{`.google-login-wrapper > div {display:block;} .google-login-wrapper button {width:100% !important; display:block !important;}`}</style>
                             <div>
                                 <label htmlFor="user" className="block text-sm font-semibold text-[#09090b] mb-2">Email/Username</label>
                                 <input
@@ -111,28 +136,42 @@ function LoginPage() {
                                 />
                             </div>
 
-                            <div className="flex items-center justify-between pt-6 border-t border-gray-100 mt-4">
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className={`inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-semibold rounded-xl text-white bg-[#09090b] hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all transform hover:-translate-y-0.5 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                >
-                                    {loading ? (
-                                        <span className="flex items-center">
-                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Elaborazione...
-                                        </span>
-                                    ) : (
-                                        'Accedi'
-                                    )}
-                                </button>
+                            <div className="flex items-center pt-6 border-t border-gray-100 mt-4">
+                                <div className="flex flex-col items-stretch gap-3 w-full">
+                                    <div className="google-login-wrapper w-full" onClick={() => { setError(null); setSuccess(null); }}>
+                                        <GoogleLogin
+                                            onSuccess={handleGoogleSuccess}
+                                            onError={handleGoogleError}
+                                            text="signin_with"
+                                            shape="rectangular"
+                                            theme="outline"
+                                            size="large"
+                                            width="100%"
+                                        />
+                                    </div>
 
-                                <button type="button" onClick={() => navigate('/register')} className="text-sm font-semibold text-gray-500 hover:text-[#09090b]">
-                                    Registrati
-                                </button>
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className={`w-full min-w-0 inline-flex justify-center py-2 px-3 border border-transparent shadow-sm text-sm font-semibold rounded-xl text-white bg-[#09090b] hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all transform hover:-translate-y-0.5 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                    >
+                                        {loading ? (
+                                            <span className="flex items-center">
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Elaborazione...
+                                            </span>
+                                        ) : (
+                                            'Accedi'
+                                        )}
+                                    </button>
+
+                                    <button type="button" onClick={() => navigate('/register')} className="w-full text-sm font-semibold text-gray-500 hover:text-[#09090b]">
+                                        Registrati
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>

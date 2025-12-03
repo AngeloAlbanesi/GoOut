@@ -3,17 +3,33 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
+import { GoogleLogin } from '@react-oauth/google';
 
 function RegisterPage() {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [dateOfBirth, setDateOfBirth] = useState('');
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [loading, setLoading] = useState(false);
 
     const navigate = useNavigate();
+
+    const handleGoogleSuccess = (credentialResponse) => {
+        console.log('Google credential response (register):', credentialResponse);
+        const cred = credentialResponse?.credential;
+        if (!cred) {
+            setError('Errore durante la registrazione con Google. Riprova.');
+            return;
+        }
+        navigate('/register/google', { state: { credential: cred } });
+    };
+
+    const handleGoogleError = () => {
+        setError('Errore durante la registrazione con Google. Riprova.');
+    };
 
     function parseApiError(err) {
         const data = err?.response?.data;
@@ -23,7 +39,20 @@ function RegisterPage() {
         if (data.error) parts.push(data.error);
         if (data.errore) parts.push(data.errore);
         if (data.detail) parts.push(data.detail);
-        return parts || JSON.stringify(data);
+        if (data.code) parts.push(`${data.code}${data.status ? ' - ' + data.status : ''}`);
+        const joined = parts.join(' — ');
+        return joined || JSON.stringify(data);
+    }
+
+    function validatePassword(password) {
+        const minLength = 10;
+        return {
+            length: password && password.length >= minLength,
+            upper: /[A-Z]/.test(password),
+            lower: /[a-z]/.test(password),
+            digit: /[0-9]/.test(password),
+            special: /[^A-Za-z0-9]/.test(password)
+        };
     }
 
     const handleSubmit = async (event) => {
@@ -32,6 +61,26 @@ function RegisterPage() {
         setSuccess(null);
         setLoading(true);
         try {
+            // Validazione client-side password
+            const pwCheck = validatePassword(password);
+            const pwErrors = [];
+            if (!pwCheck.length) pwErrors.push('La password deve essere di almeno 10 caratteri.');
+            if (!pwCheck.upper) pwErrors.push('Deve contenere almeno una lettera maiuscola.');
+            if (!pwCheck.lower) pwErrors.push('Deve contenere almeno una lettera minuscola.');
+            if (!pwCheck.digit) pwErrors.push('Deve contenere almeno una cifra.');
+            if (!pwCheck.special) pwErrors.push('Deve contenere almeno un carattere speciale.');
+            if (pwErrors.length) {
+                setError(pwErrors.join(' '));
+                setLoading(false);
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                setError('Le password non corrispondono.');
+                setLoading(false);
+                return;
+            }
+
             const userData = { username, email, password, dateOfBirth };
             const response = await authService.register(userData);
             console.log('Risposta dal server:', response.data);
@@ -86,6 +135,7 @@ function RegisterPage() {
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-6">
+                            <style>{`.google-login-wrapper > div {display:block;} .google-login-wrapper button {width:100% !important; display:block !important;}`}</style>
                             <div>
                                 <label htmlFor="username" className="block text-sm font-semibold text-[#09090b] mb-2">Username</label>
                                 <input
@@ -121,7 +171,37 @@ function RegisterPage() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                     className="appearance-none block w-full px-4 py-3.5 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#09090b] focus:border-transparent bg-gray-50 text-[#09090b] transition-all text-base hover:bg-gray-100 focus:bg-white"
-                                    placeholder="Inserisci la password"
+                                    placeholder="Min 10, 1 maiusc, 1 minus, 1 numero, 1 speciale"
+                                />
+                                <ul className="mt-2 text-xs">
+                                    <li className={validatePassword(password).length ? 'text-green-600' : 'text-red-500'}>
+                                        {validatePassword(password).length ? '✔' : '✖'} Minimo 10 caratteri
+                                    </li>
+                                    <li className={validatePassword(password).upper ? 'text-green-600' : 'text-red-500'}>
+                                        {validatePassword(password).upper ? '✔' : '✖'} Almeno una maiuscola
+                                    </li>
+                                    <li className={validatePassword(password).lower ? 'text-green-600' : 'text-red-500'}>
+                                        {validatePassword(password).lower ? '✔' : '✖'} Almeno una minuscola
+                                    </li>
+                                    <li className={validatePassword(password).digit ? 'text-green-600' : 'text-red-500'}>
+                                        {validatePassword(password).digit ? '✔' : '✖'} Almeno un numero
+                                    </li>
+                                    <li className={validatePassword(password).special ? 'text-green-600' : 'text-red-500'}>
+                                        {validatePassword(password).special ? '✔' : '✖'} Almeno un carattere speciale
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <label htmlFor="confirmPassword" className="block text-sm font-semibold text-[#09090b] mb-2">Conferma Password</label>
+                                <input
+                                    id="confirmPassword"
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                    className="appearance-none block w-full px-4 py-3.5 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#09090b] focus:border-transparent bg-gray-50 text-[#09090b] transition-all text-base hover:bg-gray-100 focus:bg-white"
+                                    placeholder="Ripeti la password"
                                 />
                             </div>
 
@@ -137,28 +217,42 @@ function RegisterPage() {
                                 />
                             </div>
 
-                            <div className="flex items-center justify-between pt-6 border-t border-gray-100 mt-4">
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className={`inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-semibold rounded-xl text-white bg-[#09090b] hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all transform hover:-translate-y-0.5 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                >
-                                    {loading ? (
-                                        <span className="flex items-center">
-                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Elaborazione...
-                                        </span>
-                                    ) : (
-                                        'Registrati'
-                                    )}
-                                </button>
+                            <div className="flex items-center pt-6 border-t border-gray-100 mt-4">
+                                <div className="flex flex-col items-stretch gap-3 w-full">
+                                    <div className="google-login-wrapper w-full" onClick={() => { setError(null); setSuccess(null); }}>
+                                        <GoogleLogin
+                                            onSuccess={handleGoogleSuccess}
+                                            onError={handleGoogleError}
+                                            text="signup_with"
+                                            shape="rectangular"
+                                            theme="outline"
+                                            size="large"
+                                            width="100%"
+                                        />
+                                    </div>
 
-                                <button type="button" onClick={() => navigate('/login')} className="text-sm font-semibold text-gray-500 hover:text-[#09090b]">
-                                    Ho già un account
-                                </button>
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className={`w-full min-w-0 inline-flex justify-center py-2 px-3 border border-transparent shadow-sm text-sm font-semibold rounded-xl text-white bg-[#09090b] hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all transform hover:-translate-y-0.5 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                    >
+                                        {loading ? (
+                                            <span className="flex items-center">
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Elaborazione...
+                                            </span>
+                                        ) : (
+                                            'Registrati'
+                                        )}
+                                    </button>
+
+                                    <button type="button" onClick={() => navigate('/login')} className="w-full text-sm font-semibold text-gray-500 hover:text-[#09090b]">
+                                        Ho già un account
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>
