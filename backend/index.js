@@ -2,6 +2,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const express = require('express');
 const cookieParser = require('cookie-parser');
+const path = require('path');
 
 dotenv.config();
 const app = express();
@@ -9,6 +10,9 @@ app.use(cors({
     origin: 'http://localhost:5173',
     credentials: true
 }));
+
+// Servire file statici dalla cartella uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 
