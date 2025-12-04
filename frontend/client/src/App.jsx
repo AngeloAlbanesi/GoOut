@@ -8,6 +8,7 @@ import MieiDatiPage from './pages/MieiDatiPage';
 import CreateEventPage from './pages/CreateEventPage'; // Mantieni l'importazione
 import GoogleRegisterPage from './pages/GoogleRegisterPage';
 import UserSearchPage from './pages/UserSearchPage';
+import PublicProfilePage from './pages/PublicProfilePage';
 import { useAuth } from './context/AuthContext';
 import { userService } from './services/api';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -103,6 +104,13 @@ function App() {
                 <Route path='/utenti' element={
                     <ProtectedRoute>
                         <UserSearchPage />
+                    </ProtectedRoute>
+                } />
+
+                {/* Profilo Pubblico Utente */}
+                <Route path='/user/:id' element={
+                    <ProtectedRoute>
+                        <PublicProfilePage />
                     </ProtectedRoute>
                 } />
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { userService } from '../services/api';
+import { Link } from 'react-router-dom';
 
 function UserSearchPage() {
     const [query, setQuery] = useState('');
@@ -99,16 +100,18 @@ function UserSearchPage() {
                     {!loading && !error && results.length > 0 && (
                         <ul className="divide-y divide-gray-100 mt-2">
                             {results.map((user) => (
-                                <li key={user.id} className="py-4 flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-full bg-[#09090b] flex items-center justify-center text-white text-lg font-bold">
-                                        {user.username?.charAt(0)?.toUpperCase()}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-[#09090b] truncate">{user.username}</p>
-                                        {user.bio && (
-                                            <p className="text-xs text-gray-500 truncate">{user.bio}</p>
-                                        )}
-                                    </div>
+                                <li key={user.id} className="py-2">
+                                    <Link to={`/user/${user.id}`} className="flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                        <div className="h-10 w-10 rounded-full bg-[#09090b] flex items-center justify-center text-white text-lg font-bold">
+                                            {user.username?.charAt(0)?.toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-[#09090b] truncate">{user.username}</p>
+                                            {user.bio && (
+                                                <p className="text-xs text-gray-500 truncate">{user.bio}</p>
+                                            )}
+                                        </div>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
