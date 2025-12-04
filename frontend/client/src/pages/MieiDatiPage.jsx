@@ -27,6 +27,7 @@ function MieiDatiPage() {
     const [imagePreview, setImagePreview] = useState(null);
     const [imageError, setImageError] = useState('');
     const [uploadLoading, setUploadLoading] = useState(false);
+    const [showRemoveModal, setShowRemoveModal] = useState(false);
     const fileInputRef = useRef(null);
 
     // Stati per cambio password
@@ -174,9 +175,12 @@ function MieiDatiPage() {
         }
     };
 
-    const handleRemoveAvatar = async () => {
-        if (!window.confirm('Vuoi rimuovere la tua immagine profilo?')) return;
+    const handleRemoveAvatar = () => {
+        setShowRemoveModal(true);
+    };
 
+    const confirmRemoveAvatar = async () => {
+        setShowRemoveModal(false);
         setUploadLoading(true);
         try {
             const response = await userService.removeAvatar();
@@ -572,6 +576,32 @@ function MieiDatiPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Modal Conferma Rimozione */}
+            {showRemoveModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-gray-100 transform transition-all scale-100">
+                        <h3 className="text-xl font-bold text-[#09090b] mb-4">Rimuovi Immagine</h3>
+                        <p className="text-gray-600 mb-8">
+                            Sei sicuro di voler rimuovere la tua immagine profilo? Questa azione non può essere annullata.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setShowRemoveModal(false)}
+                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                onClick={confirmRemoveAvatar}
+                                className="px-6 py-2 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors"
+                            >
+                                Rimuovi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
