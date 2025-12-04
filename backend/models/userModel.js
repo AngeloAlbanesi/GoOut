@@ -171,7 +171,7 @@ async function unfollowUser(followerId, followingId) {
 }
 
 async function findPublicProfileById(id) {
-    return await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
         where: { id: Number(id) },
         select: {
             id: true,
@@ -179,10 +179,22 @@ async function findPublicProfileById(id) {
             bio: true,
             profilePictureUrl: true,
             createdEvents: {
-                orderBy: { date: 'desc' }
+                orderBy: { date: 'desc' },
+                include: {
+                    _count: { select: { registrations: true } }
+                }
             }
         }
     });
+
+    if (user && user.createdEvents) {
+        user.createdEvents = user.createdEvents.map(event => {
+            const { _count, ...rest } = event;
+            return { ...rest, participantsCount: _count?.registrations ?? 0 };
+        });
+    }
+
+    return user;
 }
 
 module.exports = {

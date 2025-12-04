@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { userService } from '../services/api';
+import EventDetailsModal from '../components/EventDetailsModal';
 
 const API_BASE_URL = 'http://localhost:3001';
 
@@ -9,6 +10,7 @@ function PublicProfilePage() {
     const [profileData, setProfileData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedEvent, setSelectedEvent] = useState(null);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -124,12 +126,28 @@ function PublicProfilePage() {
                                             </div>
                                         </div>
                                     </div>
+                                    <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
+                                        <button
+                                            onClick={() => setSelectedEvent(event)}
+                                            className="w-full text-center text-gray-600 hover:text-[#09090b] font-semibold text-sm transition-colors"
+                                        >
+                                            Dettagli
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* Event Details Modal */}
+            {selectedEvent && (
+                <EventDetailsModal 
+                    event={selectedEvent} 
+                    onClose={() => setSelectedEvent(null)} 
+                />
+            )}
         </div>
     );
 }
