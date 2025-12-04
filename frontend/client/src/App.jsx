@@ -4,6 +4,7 @@ import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
+import MieiDatiPage from './pages/MieiDatiPage';
 import CreateEventPage from './pages/CreateEventPage'; // Mantieni l'importazione
 import GoogleRegisterPage from './pages/GoogleRegisterPage';
 import UserSearchPage from './pages/UserSearchPage';
@@ -32,6 +33,7 @@ function Navbar() {
                         {isAuthenticated ? (
                             <>
                                 <Link to="/profilo" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">Profilo</Link>
+                                <Link to="/miei-dati" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">I Miei Dati</Link>
                                 <Link to="/utenti" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">Cerca Utenti</Link>
                                 <Link to="/events/new" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">Crea Evento</Link>
                                 <button
@@ -89,6 +91,12 @@ function App() {
                 <Route path='/profilo' element={
                     <ProtectedRoute>
                         <ProfilePage />
+                    </ProtectedRoute>} />
+
+                {/* Rotta Protetta per I Miei Dati */}
+                <Route path='/miei-dati' element={
+                    <ProtectedRoute>
+                        <MieiDatiPage />
                     </ProtectedRoute>} />
 
                 {/* Pagina di ricerca utenti (protetta) */}
