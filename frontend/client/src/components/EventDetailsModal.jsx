@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 function EventDetailsModal({ event, onClose }) {
     if (!event) return null;
@@ -54,6 +55,20 @@ function EventDetailsModal({ event, onClose }) {
                                 {event.location}
                             </div>
                         </div>
+
+                        {event.creator && (
+                            <div className="space-y-1">
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Organizzatore</span>
+                                <Link 
+                                    to={`/user/${event.creator.id}`}
+                                    className="flex items-center text-[#09090b] font-medium text-lg hover:underline"
+                                    onClick={onClose}
+                                >
+                                    <span className="mr-2">👤</span>
+                                    {event.creator.username}
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     <div className="mb-8 space-y-2">

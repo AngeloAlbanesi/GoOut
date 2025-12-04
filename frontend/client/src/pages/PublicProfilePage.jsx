@@ -128,7 +128,7 @@ function PublicProfilePage() {
                                     </div>
                                     <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
                                         <button
-                                            onClick={() => setSelectedEvent(event)}
+                                            onClick={() => setSelectedEvent({ ...event, creator: profileData })}
                                             className="w-full text-center text-gray-600 hover:text-[#09090b] font-semibold text-sm transition-colors"
                                         >
                                             Dettagli
