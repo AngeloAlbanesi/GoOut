@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { eventService, userService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import EventDetailsModal from '../components/EventDetailsModal';
 
 const API_BASE_URL = 'http://localhost:3001';
 
@@ -12,6 +13,7 @@ function ProfilePage() {
     const [myEvents, setMyEvents] = useState([]);
     const [participations, setParticipations] = useState([]);
     const [profileData, setProfileData] = useState(null);
+    const [selectedEvent, setSelectedEvent] = useState(null);
 
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
@@ -181,6 +183,12 @@ function ProfilePage() {
                                             Modifica
                                         </Link>
                                         <button
+                                            onClick={() => setSelectedEvent(event)}
+                                            className="text-gray-600 hover:text-[#09090b] font-semibold text-sm transition-colors"
+                                        >
+                                            Dettagli
+                                        </button>
+                                        <button
                                             onClick={() => handleDeleteEvent(event.id)}
                                             className="text-gray-400 hover:text-red-600 font-semibold text-sm transition-colors"
                                         >
@@ -242,6 +250,14 @@ function ProfilePage() {
                     )}
                 </div>
             </div>
+
+            {/* Event Details Modal */}
+            {selectedEvent && (
+                <EventDetailsModal 
+                    event={selectedEvent} 
+                    onClose={() => setSelectedEvent(null)} 
+                />
+            )}
         </div>
     );
 }
