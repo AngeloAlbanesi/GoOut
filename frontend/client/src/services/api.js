@@ -108,7 +108,9 @@ export const eventService = {
     participate: (id) => apiClient.post(`events/${id}/participate`),
     cancelParticipation: (id) => apiClient.delete(`events/${id}/participate`),
     getMyEvents: () => apiClient.get('events/my-events'),
-    getMyParticipations: () => apiClient.get('events/my-participations')
+    getMyParticipations: () => apiClient.get('events/my-participations'),
+    getEventDetails: (id) => apiClient.get(`events/${id}`),
+    getEventParticipants: (id) => apiClient.get(`events/${id}/participants`)
 };
 
 export async function fetchFutureEvents(page = 1, limit = 10) {

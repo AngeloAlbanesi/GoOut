@@ -17,54 +17,24 @@ export default function EventPage() {
 
   useEffect(() => {
     let mounted = true;
-    const fetchEvent = async () => {
+    const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/events/${id}`, { credentials: 'include' });
-        if (!res.ok) throw new Error(`Errore ${res.status}`);
-        const data = await res.json();
+        const res = await eventService.getEventDetails(id);
         if (!mounted) return;
+        const data = res.data;
         setEvent(data);
+        setParticipants(data.participants || []);
       } catch (err) {
-        setError(err.message || 'Errore nel recupero evento');
+        const message = err?.response?.data?.error || err.message || 'Errore nel recupero evento';
+        setError(message);
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
-    const fetchParticipants = async () => {
-      setLoadingParticipants(true);
-      try {
-        // endpoint consigliato: /api/events/:id/participants — se non esiste prova a chiamare /api/events/:id/registrations
-        const tryUrls = [`/api/events/${id}/participants`, `/api/events/${id}/registrations`];
-        let ppl = [];
-        for (const url of tryUrls) {
-          try {
-            const r = await fetch(url, { credentials: 'include' });
-            if (!r.ok) continue;
-            const d = await r.json();
-            // supporta risposta array o { participants: [...] } o { registrations: [...] }
-            if (Array.isArray(d)) { ppl = d; break; }
-            if (Array.isArray(d.participants)) { ppl = d.participants; break; }
-            if (Array.isArray(d.registrations)) {
-              // maps registration -> user if present
-              ppl = d.registrations.map(reg => reg.user || reg);
-              break;
-            }
-          } catch { /* ignora e prova il prossimo */ }
-        }
-        setParticipants(ppl);
-      } catch (err) {
-        // non fatale: lascia array vuoto
-      } finally {
-        setLoadingParticipants(false);
-      }
-    };
-
-    fetchEvent();
-    fetchParticipants();
-
+    load();
     return () => { mounted = false; };
   }, [id]);
 
@@ -80,15 +50,12 @@ export default function EventPage() {
     setActionLoading(true);
     try {
       await eventService.participate(id);
-      // aggiunta ottimistica: inserisce l'utente corrente nella lista partecipanti (se disponibiile)
       if (user) {
         setParticipants(prev => {
           if (prev.some(p => p.id === user.id)) return prev;
-          return [...prev, { id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl }];
+          return [...prev, { id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl, email: user.email }];
         });
       } else {
-        // ricarica la lista se non abbiamo dati utente
-        // tenta fetch rapido
         const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
         if (r.ok) {
           const d = await r.json();
@@ -108,7 +75,6 @@ export default function EventPage() {
     setActionLoading(true);
     try {
       await eventService.cancelParticipation(id);
-      // rimozione ottimistica
       if (user) {
         setParticipants(prev => prev.filter(p => !(p.id === user.id || p.userId === user.id || p.username === user.username)));
       } else {
@@ -126,6 +92,41 @@ export default function EventPage() {
     }
   };
 
+  // helper: render avatar image or initial (styling consistent with ProfilePage)
+  const renderAvatar = (person, size = 40) => {
+    const name = person?.username || person?.name || '';
+    const initial = (name.trim().charAt(0) || 'U').toUpperCase();
+    const imgUrl = person?.profilePictureUrl || person?.avatar || null;
+
+    const commonStyle = {
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      overflow: 'hidden',
+      flexShrink: 0,
+      display: 'inline-block'
+    };
+
+    if (imgUrl) {
+      return <img src={imgUrl} alt={person?.username || person?.name || 'utente'} style={{ ...commonStyle, objectFit: 'cover' }} />;
+    }
+
+    return (
+      <div style={{
+        ...commonStyle,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#09090b',
+        color: '#fff',
+        fontWeight: 700,
+        fontSize: Math.round(size * 0.45)
+      }}>
+        {initial}
+      </div>
+    );
+  };
+
   if (loading) return <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}><p>Caricamento evento...</p></main>;
   if (error) return <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}><p style={{ color: 'red' }}>{error}</p></main>;
   if (!event) return <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}><p>Evento non trovato.</p></main>;
@@ -136,16 +137,42 @@ export default function EventPage() {
     <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <h1 style={{ margin: 0 }}>{event.title}</h1>
-        <time style={{ color: '#6b7280' }}>{eventDate.toLocaleString()}</time>
+        <time style={{ color: '#6b7280' }}>{eventDate.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' , year: 'numeric' })}</time>
       </header>
 
-      <p style={{ color: '#374151' }}>{event.description}</p>
+      <div style={{ display: 'grid', gap: 10, marginTop: 16, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <strong>Descrizione:</strong>
+          <div style={{ color: '#374151' }}>{event.description}</div>
+        </div>
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-        <div>Luogo: <strong>{event.location || '—'}</strong></div>
-        <div>Massimo partecipanti: <strong>{event.maxParticipants ?? '—'}</strong></div>
-        <div>Organizzatore: <strong>{event.creator?.username ?? '—'}</strong></div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <strong>Luogo:</strong>
+          <div>{event.location || '—'}</div>
+        </div>
 
+        <div style={{ display: 'flex', gap: 8 }}>
+          <strong>Massimo partecipanti:</strong>
+          <div>{event.maxParticipants ?? '—'}</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <strong>Organizzatore:</strong>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            {renderAvatar(event.creator, 36)}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ color: '#09090b', fontWeight: 700, fontSize: 16 }}>
+                {event.creator?.username ?? '—'}
+              </span>
+              <span style={{ color: '#6b7280', fontSize: 13 }}>
+                {event.creator?.email || ''}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ marginLeft: 'auto' }}>
           {isUserParticipating() ? (
             <button onClick={handleCancelParticipation} disabled={actionLoading} style={{ padding: '6px 10px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none' }}>
@@ -168,11 +195,22 @@ export default function EventPage() {
         ) : (
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {participants.map(p => (
-              <li key={p.id ?? p.userId ?? p.username} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                <img src={p.profilePictureUrl || p.avatar || '/placeholder-avatar.png'} alt={p.username || p.name || 'utente'} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-                <div>
-                  <div style={{ fontWeight: 600 }}>{p.username || p.name || `Utente ${p.id ?? ''}`}</div>
-                  <div style={{ fontSize: 13, color: '#6b7280' }}>{p.email || ''}</div>
+              <li
+                key={p.id ?? p.userId ?? p.username}
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'center',
+                  padding: '12px 0',
+                  borderBottom: '1px solid #f3f4f6'
+                }}
+              >
+                {renderAvatar(p, 48)}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ color: '#09090b', fontWeight: 700, fontSize: 16 }}>
+                    {p.username || p.name || `Utente ${p.id ?? ''}`}
+                  </span>
+                  <span style={{ fontSize: 13, color: '#6b7280' }}>{p.email || ''}</span>
                 </div>
               </li>
             ))}

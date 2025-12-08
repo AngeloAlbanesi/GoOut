@@ -263,24 +263,49 @@ async function getEventsFromFollowedUsers(req, res) {
     }
 }
 
-//Ottieni dettagli di un evento
+// Ottieni dettagli di un evento (inclusi partecipanti)
 async function getEventDetails(req, res) {
-    try {
-        const eventId = parseInt(req.params.id);
-        const event = await prisma.event.findUnique({
-            where: { id: eventId },
-            include: { creator: { select: { username: true } } }
-        });
+  try {
+    const eventId = parseInt(req.params.id, 10);
+    if (Number.isNaN(eventId)) return res.status(400).json({ error: 'ID evento non valido.' });
 
-        if (!event) {
-            return res.status(404).json({ error: 'Evento non trovato.' });
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        creator: { select: { id: true, username: true, profilePictureUrl: true } },
+        registrations: {
+          include: {
+            user: { select: { id: true, username: true, profilePictureUrl: true, email: true } }
+          },
+          orderBy: { registeredAt: 'asc' }
         }
+      }
+    });
 
-        res.json(event);
-    } catch (error) {
-        console.error("Errore nel recupero dei dettagli dell'evento:", error);
-        res.status(500).json({ error: 'Errore interno del server.' });
+    if (!event) {
+      return res.status(404).json({ error: 'Evento non trovato.' });
     }
+
+    // mappa le registrations in una lista di partecipanti più semplice
+    const participants = event.registrations.map(r => {
+      return {
+        id: r.user?.id ?? null,
+        username: r.user?.username ?? null,
+        profilePictureUrl: r.user?.profilePictureUrl ?? null,
+        email: r.user?.email ?? null,
+        registeredAt: r.registeredAt
+      };
+    });
+
+    // espone participants separatamente, senza le registrations raw
+    const { registrations, ...rest } = event;
+    const response = { ...rest, participants, participantsCount: participants.length };
+
+    return res.json(response);
+  } catch (error) {
+    console.error("Errore nel recupero dei dettagli dell'evento:", error);
+    res.status(500).json({ error: 'Errore interno del server.' });
+  }
 }
 
 module.exports = {

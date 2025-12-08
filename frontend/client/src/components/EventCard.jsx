@@ -50,6 +50,10 @@ export default function EventCard({ event, onParticipationChange }) {
     }
   };
 
+  const handleInfo = () => {
+    navigate(`/events/${event.id}`);
+  };
+
   return (
     <article className="event-card" style={{
       border: '1px solid #e5e7eb', padding: 12, borderRadius: 8, marginBottom: 12, background: '#fff'
@@ -68,7 +72,24 @@ export default function EventCard({ event, onParticipationChange }) {
         <span>•</span>
         <span>Organizzatore: {event.creator?.username || '—'}</span>
 
-        <div style={{ marginLeft: 'auto' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* Pulsante Info: sempre visibile */}
+          <button
+            onClick={handleInfo}
+            aria-label="Info evento"
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              background: '#3b82f6',
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            Info
+          </button>
+
+          {/* Pulsanti partecipazione */}
           {!isAuthenticated ? (
             <button
               onClick={handleRequireLogin}
