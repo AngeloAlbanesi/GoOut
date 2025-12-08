@@ -12,6 +12,7 @@ import { userService } from './services/api';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicRoute } from './components/PublicRoute';
 import HomePage from './pages/HomePage';
+import EventPage from './pages/EventPage';
 
 function Navbar() {
     const { isAuthenticated, logout } = useAuth();
@@ -84,7 +85,8 @@ function App() {
             <Routes>
                 {/*Rotta pubblica per la home page */}
                 <Route path='/' element={<HomePage />} />
-
+                {/* dettaglio evento */}
+                <Route path="/events/:id" element={<EventPage />} />
                 {/* Rotta Protetta per il Profilo (dal ramo main) */}
                 <Route path='/profilo' element={
                     <ProtectedRoute>

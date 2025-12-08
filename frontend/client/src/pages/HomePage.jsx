@@ -76,7 +76,7 @@ export default function HomePage() {
 
   return (
     <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}>
-      <h2>Eventi futuri</h2>
+      <h2>Eventi</h2>
 
       {events.length === 0 && !loading && <p>Nessun evento trovato.</p>}
 

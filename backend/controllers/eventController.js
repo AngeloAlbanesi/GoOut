@@ -200,38 +200,41 @@ async function getMyParticipations(req, res) {
 
 //Ottieni tutti gli eventi futuri impaginati
 async function getFutureEvents(req, res) {
-    try {
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.max(1, parseInt(req.query.limit) || 10);
-        const skip = (page - 1) * limit;
-        const currentDate = new Date();
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 10);
+    const skip = (page - 1) * limit;
 
-        const total = await prisma.event.count({
-            where: { date: { gt: currentDate } }
-        });
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
 
-        const events = await prisma.event.findMany({
-            where: { date: { gt: currentDate } },
-            orderBy: { date: 'asc' },
-            skip,
-            take: limit,
-            include: {
-                creator: { select: { username: true } },
-                _count: { select: { registrations: true } }
-            }
-        });
+    // includi eventi dalla mezzanotte di oggi in poi
+    const where = { date: { gte: startOfToday } };
 
-        // espone participantsCount
-        const mapped = events.map(e => {
-            const { _count, ...rest } = e;
-            return { ...rest, participantsCount: _count?.registrations ?? 0 };
-        });
+    const total = await prisma.event.count({ where });
 
-        res.json({ page, limit, total, events: mapped });
-    } catch (error) {
-        console.error("Errore nel recupero degli eventi futuri:", error);
-        res.status(500).json({ error: 'Errore interno del server.' });
-    }
+    const events = await prisma.event.findMany({
+      where,
+      orderBy: { date: 'asc' },
+      skip,
+      take: limit,
+      include: {
+        creator: { select: { username: true } },
+        _count: { select: { registrations: true } }
+      }
+    });
+
+    const mapped = events.map(e => {
+      const { _count, ...rest } = e;
+      return { ...rest, participantsCount: _count?.registrations ?? 0 };
+    });
+
+    res.json({ page, limit, total, events: mapped });
+  } catch (error) {
+    console.error("Errore nel recupero degli eventi futuri:", error);
+    res.status(500).json({ error: 'Errore interno del server.' });
+  }
 }
 
 //Ottieni eventi creati dagli utenti seguiti
