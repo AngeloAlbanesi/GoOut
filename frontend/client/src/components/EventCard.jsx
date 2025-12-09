@@ -1,18 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { eventService } from '../services/api';
 
 export default function EventCard({ event, onParticipationChange }) {
   const date = new Date(event.date);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
-  // stato locale per visualizzare aggiornamenti immediati
   const [participantsCount, setParticipantsCount] = useState(event.participantsCount ?? 0);
-  // se il backend fornisce una flag (es. event.isParticipating) la utilizziamo, altrimenti false
   const [isParticipating, setIsParticipating] = useState(Boolean(event.isParticipating));
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setIsParticipating(Boolean(event.isParticipating));
+    setParticipantsCount(event.participantsCount ?? event.participants?.length ?? 0);
+  }, [event.id, event.isParticipating, event.participantsCount, event.participants]);
 
   const handleRequireLogin = () => {
     navigate('/login');
@@ -25,7 +28,7 @@ export default function EventCard({ event, onParticipationChange }) {
       await eventService.participate(event.id);
       setParticipantsCount(prev => prev + 1);
       setIsParticipating(true);
-      if (typeof onParticipationChange === 'function') onParticipationChange(event.id, true);
+      if (typeof onParticipationChange === 'function') onParticipationChange(event.id, true, { origin: 'card', user });
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || 'Errore durante l\'iscrizione';
       alert(msg);
@@ -41,7 +44,7 @@ export default function EventCard({ event, onParticipationChange }) {
       await eventService.cancelParticipation(event.id);
       setParticipantsCount(prev => Math.max(0, prev - 1));
       setIsParticipating(false);
-      if (typeof onParticipationChange === 'function') onParticipationChange(event.id, false);
+      if (typeof onParticipationChange === 'function') onParticipationChange(event.id, false, { origin: 'card', user });
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || 'Errore durante la cancellazione';
       alert(msg);
@@ -73,7 +76,6 @@ export default function EventCard({ event, onParticipationChange }) {
         <span>Organizzatore: {event.creator?.username || '—'}</span>
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-          {/* Pulsante Info: sempre visibile */}
           <button
             onClick={handleInfo}
             aria-label="Info evento"
@@ -89,7 +91,6 @@ export default function EventCard({ event, onParticipationChange }) {
             Info
           </button>
 
-          {/* Pulsanti partecipazione */}
           {!isAuthenticated ? (
             <button
               onClick={handleRequireLogin}

@@ -99,6 +99,9 @@ export const userService = {
     },
     removeAvatar: () => { return apiClient.delete('users/me/avatar'); },
     changePassword: (data) => { return apiClient.patch('users/me/password', data); },
+    getPublicUser: (id) => apiClient.get(`users/${id}`),
+    followUser: (id) => apiClient.post(`users/${id}/follow`),
+    unfollowUser: (id) => apiClient.delete(`users/${id}/follow`),
 };
 
 export const eventService = {
@@ -110,7 +113,8 @@ export const eventService = {
     getMyEvents: () => apiClient.get('events/my-events'),
     getMyParticipations: () => apiClient.get('events/my-participations'),
     getEventDetails: (id) => apiClient.get(`events/${id}`),
-    getEventParticipants: (id) => apiClient.get(`events/${id}/participants`)
+    getEventParticipants: (id) => apiClient.get(`events/${id}/participants`),
+    getEventsFromFollowedUsers: (page = 1, limit = 10) => apiClient.get('events/from-followed', { params: { page, limit } }),
 };
 
 export async function fetchFutureEvents(page = 1, limit = 10) {

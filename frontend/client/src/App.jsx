@@ -13,6 +13,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicRoute } from './components/PublicRoute';
 import HomePage from './pages/HomePage';
 import EventPage from './pages/EventPage';
+import UserPublicPage from './pages/UserPublicPage';
 
 function Navbar() {
     const { isAuthenticated, logout } = useAuth();
@@ -117,6 +118,8 @@ function App() {
                     </ProtectedRoute>
                 } />
 
+                {/* Rotta per la pagina pubblica utente */}
+                <Route path="/user/:id" element={<UserPublicPage />} />
             </Routes>
         </div>
     );

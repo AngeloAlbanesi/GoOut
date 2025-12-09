@@ -237,26 +237,49 @@ async function getFutureEvents(req, res) {
   }
 }
 
-//Ottieni eventi creati dagli utenti seguiti
-//Potenziale implementazione di impaginazione dei risultati
+//Ottieni eventi creati dagli utenti seguiti (paginated, include creator/_count)
 async function getEventsFromFollowedUsers(req, res) {
     try {
         const userId = req.id;
+
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.max(1, parseInt(req.query.limit) || 10);
+        const skip = (page - 1) * limit;
+
         // Recupera gli ID degli utenti seguiti
-        const followedUsers = await prisma.following.findMany({
+        const followedRows = await prisma.follows.findMany({
             where: { followerId: userId },
             select: { followingId: true }
         });
 
-        const followedUserIds = followedUsers.map(follow => follow.followingId);
+        const followedUserIds = followedRows.map(f => f.followingId);
 
-        // Recupera gli eventi creati dagli utenti seguiti
+        // se non segue nessuno, ritorniamo subito un oggetto paginato vuoto
+        if (followedUserIds.length === 0) {
+            return res.json({ page, limit, total: 0, events: [] });
+        }
+
+        const where = { creatorId: { in: followedUserIds }, date: { gte: new Date() } };
+
+        const total = await prisma.event.count({ where });
+
         const events = await prisma.event.findMany({
-            where: { creatorId: { in: followedUserIds } },
-            orderBy: { date: 'asc' }
+            where,
+            orderBy: { date: 'asc' },
+            skip,
+            take: limit,
+            include: {
+                creator: { select: { id: true, username: true, profilePictureUrl: true } },
+                _count: { select: { registrations: true } }
+            }
         });
 
-        res.json(events);
+        const mapped = events.map(e => {
+            const { _count, ...rest } = e;
+            return { ...rest, participantsCount: _count?.registrations ?? 0 };
+        });
+
+        res.json({ page, limit, total, events: mapped });
     } catch (error) {
         console.error("Errore nel recupero degli eventi degli utenti seguiti:", error);
         res.status(500).json({ error: 'Errore interno del server.' });
