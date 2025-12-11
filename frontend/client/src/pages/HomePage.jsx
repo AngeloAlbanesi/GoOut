@@ -31,12 +31,14 @@ export default function HomePage() {
 
   // Track user's current participations (ids as strings)
   const [myParticipations, setMyParticipations] = useState(new Set());
+  const [participationsLoaded, setParticipationsLoaded] = useState(false);
 
   // Fetch user's participations on mount / when auth changes
   useEffect(() => {
     let mounted = true;
     if (!isAuthenticated) {
       setMyParticipations(new Set());
+      setParticipationsLoaded(true);
       return;
     }
 
@@ -53,6 +55,8 @@ export default function HomePage() {
         setFriendsEvents(prev => prev.map(ev => ({ ...ev, isParticipating: set.has(String(ev.id)) })));
       } catch (err) {
         console.error('Errore nel recupero delle partecipazioni:', err);
+      } finally {
+        if (mounted) setParticipationsLoaded(true);
       }
     })();
 
@@ -60,9 +64,9 @@ export default function HomePage() {
   }, [isAuthenticated]);
 
   // Handler invoked by EventCard when participation changes (local optimistic update)
-  // options: { origin: 'card'|'page'|'home', user }
+  // This callback is called AFTER EventCard emits the global event,
+  // so we just need to update HomePage's local state
   const handleParticipationChange = (eventId, participating, options = {}) => {
-    const origin = options.origin || 'card';
     const idStr = String(eventId);
 
     setEvents(prev => prev.map(ev => {
@@ -84,16 +88,8 @@ export default function HomePage() {
       return next;
     });
 
-    // If the action originated from the card/list, emit a global event so other views (EventPage) can update.
-    // We avoid re-emitting events that have origin === 'page' (those come from EventPage).
-    if (origin === 'card') {
-      try {
-        const detail = { eventId, participating, user: user ?? null, origin: 'home' };
-        window.dispatchEvent(new CustomEvent('participationChanged', { detail }));
-      } catch (err) {
-        console.error('Impossibile emettere participationChanged da HomePage:', err);
-      }
-    }
+    // Note: EventCard already emits the global 'participationChanged' event,
+    // so we don't need to re-emit it here
   };
 
   const loadPage = useCallback(async (p) => {
@@ -160,11 +156,12 @@ export default function HomePage() {
   }, [limit, friendsEvents.length, myParticipations]);
 
   useEffect(() => {
-    // load first page global feed
+    // load first page global feed ONLY after participations are loaded
+    if (!participationsLoaded) return;
     loadPage(1);
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [participationsLoaded]);
 
   useEffect(() => {
     if (!sentinelRef.current) return;
@@ -239,6 +236,7 @@ export default function HomePage() {
         if (!eventId) return;
 
         // Ignore events emitted by this HomePage instance (origin === 'home')
+        // We only react to events from EventCard (origin === 'card') or EventPage (origin === 'page')
         if (origin === 'home') return;
 
         const idStr = String(eventId);

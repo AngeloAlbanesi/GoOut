@@ -17,6 +17,25 @@ export default function EventCard({ event, onParticipationChange }) {
     setParticipantsCount(event.participantsCount ?? event.participants?.length ?? 0);
   }, [event.id, event.isParticipating, event.participantsCount, event.participants]);
 
+  // Listener per aggiornamenti globali di partecipazione (da EventPage o altre EventCard)
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const { eventId, participating } = e.detail || {};
+        if (String(eventId) !== String(event.id)) return;
+
+        setIsParticipating(Boolean(participating));
+        const delta = participating ? 1 : -1;
+        setParticipantsCount(prev => Math.max(0, prev + delta));
+      } catch (err) {
+        console.error('Errore nel listener participationChanged di EventCard:', err);
+      }
+    };
+
+    window.addEventListener('participationChanged', handler);
+    return () => window.removeEventListener('participationChanged', handler);
+  }, [event.id]);
+
   const handleRequireLogin = () => {
     navigate('/login');
   };
@@ -25,10 +44,26 @@ export default function EventCard({ event, onParticipationChange }) {
     if (!isAuthenticated) return handleRequireLogin();
     setLoading(true);
     try {
+      console.log('[EventCard] handleParticipate START', { eventId: event.id });
       await eventService.participate(event.id);
+      console.log('[EventCard] API participate OK');
       setParticipantsCount(prev => prev + 1);
       setIsParticipating(true);
-      if (typeof onParticipationChange === 'function') onParticipationChange(event.id, true, { origin: 'card', user });
+      
+      // Call the callback if provided (for HomePage)
+      if (typeof onParticipationChange === 'function') {
+        console.log('[EventCard] calling onParticipationChange');
+        onParticipationChange(event.id, true, { origin: 'card', user });
+      }
+      
+      // Always emit global event so other components can update
+      try {
+        const detail = { eventId: event.id, participating: true, user: user ?? null, origin: 'card' };
+        console.log('[EventCard] Emitting participationChanged', detail);
+        window.dispatchEvent(new CustomEvent('participationChanged', { detail }));
+      } catch (err) {
+        console.error('Impossibile emettere participationChanged da EventCard:', err);
+      }
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || 'Errore durante l\'iscrizione';
       alert(msg);
@@ -41,10 +76,26 @@ export default function EventCard({ event, onParticipationChange }) {
     if (!isAuthenticated) return handleRequireLogin();
     setLoading(true);
     try {
+      console.log('[EventCard] handleCancelParticipation START', { eventId: event.id });
       await eventService.cancelParticipation(event.id);
+      console.log('[EventCard] API cancel OK');
       setParticipantsCount(prev => Math.max(0, prev - 1));
       setIsParticipating(false);
-      if (typeof onParticipationChange === 'function') onParticipationChange(event.id, false, { origin: 'card', user });
+      
+      // Call the callback if provided (for HomePage)
+      if (typeof onParticipationChange === 'function') {
+        console.log('[EventCard] calling onParticipationChange');
+        onParticipationChange(event.id, false, { origin: 'card', user });
+      }
+      
+      // Always emit global event so other components can update
+      try {
+        const detail = { eventId: event.id, participating: false, user: user ?? null, origin: 'card' };
+        console.log('[EventCard] Emitting participationChanged', detail);
+        window.dispatchEvent(new CustomEvent('participationChanged', { detail }));
+      } catch (err) {
+        console.error('Impossibile emettere participationChanged da EventCard:', err);
+      }
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || 'Errore durante la cancellazione';
       alert(msg);

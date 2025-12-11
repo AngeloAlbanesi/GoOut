@@ -38,12 +38,36 @@ export default function EventPage() {
     return () => { mounted = false; };
   }, [id]);
 
+
   useEffect(() => {
     const handler = (e) => {
       try {
         const { eventId, participating, user: u } = e.detail || {};
-        if (String(eventId) !== String(id)) return;
+        
+        // Debug: log TUTTI gli eventi che arrivano
+        console.log('[EventPage] Event ricevuto:', { eventId, id, match: String(eventId) === String(id), participating });
+        
+        if (!eventId) {
+          console.log('[EventPage] eventId mancante');
+          return;
+        }
+        if (String(eventId) !== String(id)) {
+          console.log('[EventPage] Event non è per questo evento');
+          return;
+        }
 
+        console.log('[EventPage] Processing event for questo evento:', { eventId, participating });
+
+        // Aggiorna il contatore dei partecipanti e lo stato di isParticipating
+        setEvent(prev => {
+          if (!prev) return prev;
+          const currentCount = prev.participantsCount ?? 0;
+          const nextCount = Math.max(0, currentCount + (participating ? 1 : -1));
+          console.log('[EventPage] Aggiornando event:', { currentCount, nextCount, participating });
+          return { ...prev, participantsCount: nextCount, isParticipating: Boolean(participating) };
+        });
+
+        // Aggiorna la lista dei partecipanti
         if (participating) {
           if (u && u.id) {
             setParticipants(prev => {
@@ -51,46 +75,63 @@ export default function EventPage() {
               return [...prev, { id: u.id, username: u.username || null, profilePictureUrl: u.profilePictureUrl || null, email: u.email || null }];
             });
           } else {
+            // Se non abbiamo i dati dell'utente, ricarica da server
+            setLoadingParticipants(true);
             (async () => {
-              setLoadingParticipants(true);
-              const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-              if (r.ok) {
-                const d = await r.json();
-                setParticipants(Array.isArray(d) ? d : (d.participants || []));
+              try {
+                const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
+                if (r.ok) {
+                  const d = await r.json();
+                  setParticipants(Array.isArray(d) ? d : (d.participants || []));
+                }
+              } finally {
+                setLoadingParticipants(false);
               }
-              setLoadingParticipants(false);
             })();
           }
         } else {
           if (u && u.id) {
             setParticipants(prev => prev.filter(p => String(p.id ?? p.userId ?? '') !== String(u.id)));
           } else {
+            // Se non abbiamo i dati dell'utente, ricarica da server
+            setLoadingParticipants(true);
             (async () => {
-              setLoadingParticipants(true);
-              const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-              if (r.ok) {
-                const d = await r.json();
-                setParticipants(Array.isArray(d) ? d : (d.participants || []));
+              try {
+                const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
+                if (r.ok) {
+                  const d = await r.json();
+                  setParticipants(Array.isArray(d) ? d : (d.participants || []));
+                }
+              } finally {
+                setLoadingParticipants(false);
               }
-              setLoadingParticipants(false);
             })();
           }
         }
-
-        setEvent(prev => {
-          if (!prev) return prev;
-          const currentCount = prev.participantsCount ?? (Array.isArray(prev.participants) ? prev.participants.length : participants.length);
-          const nextCount = Math.max(0, currentCount + (participating ? 1 : -1));
-          return { ...prev, participantsCount: nextCount, isParticipating: Boolean(participating) };
-        });
       } catch (err) {
         console.error('Errore gestione evento participationChanged:', err);
+        setLoadingParticipants(false);
       }
     };
 
+    // FIRST: se c'è un evento memorizzato, applicalo subito (race condition: evento emesso prima che il listener si registri)
+    const lastEvent = window.__lastParticipationEvent;
+    if (lastEvent && String(lastEvent.eventId) === String(id)) {
+      console.log('[EventPage] Found stored event, applying it before listener register:', lastEvent);
+      try {
+        handler({ detail: lastEvent });
+      } finally {
+        window.__lastParticipationEvent = null;
+      }
+    }
+
+    console.log('[EventPage] Registering listener per eventId:', id);
     window.addEventListener('participationChanged', handler);
-    return () => window.removeEventListener('participationChanged', handler);
-  }, [id, participants.length]);
+    return () => {
+      console.log('[EventPage] Rimuovendo listener');
+      window.removeEventListener('participationChanged', handler);
+    };
+  }, [id]);
 
   const handleRequireLogin = () => navigate('/login');
 
@@ -229,6 +270,7 @@ export default function EventPage() {
 
   const goToUser = (userId) => {
     if (!userId) return;
+    // Se stai cliccando sul tuo profilo, vai alla pagina profilo privata
     if (user && String(user.id) === String(userId)) {
       navigate('/profilo');
     } else {
@@ -300,12 +342,12 @@ export default function EventPage() {
 
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ marginLeft: 'auto' }}>
-          {isUserParticipating() ? (
+          {event?.isParticipating ? (
             <button onClick={handleCancelParticipation} disabled={actionLoading} style={{ padding: '6px 10px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none' }}>
               {actionLoading ? 'Attendere...' : 'Annulla partecipazione'}
             </button>
           ) : (
-            <button onClick={handleParticipate} disabled={actionLoading || (event.maxParticipants && participants.length >= event.maxParticipants)} style={{ padding: '6px 10px', borderRadius: 6, background: '#10b981', color: '#fff', border: 'none' }}>
+            <button onClick={handleParticipate} disabled={actionLoading || (event?.maxParticipants && participants.length >= event.maxParticipants)} style={{ padding: '6px 10px', borderRadius: 6, background: '#10b981', color: '#fff', border: 'none' }}>
               {actionLoading ? 'Attendere...' : 'Partecipa'}
             </button>
           )}

@@ -44,6 +44,31 @@ export default function UserPublicPage() {
     return () => { mounted = false; };
   }, [id]);
 
+  // Listener per aggiornamenti di partecipazione agli eventi
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const { eventId, participating } = e.detail || {};
+        if (!eventId) return;
+
+        setEvents(prev => prev.map(ev => {
+          if (String(ev.id) !== String(eventId)) return ev;
+          const delta = participating ? 1 : -1;
+          return {
+            ...ev,
+            isParticipating: Boolean(participating),
+            participantsCount: Math.max(0, (ev.participantsCount ?? 0) + delta)
+          };
+        }));
+      } catch (err) {
+        console.error('Errore gestione evento participationChanged in UserPublicPage:', err);
+      }
+    };
+
+    window.addEventListener('participationChanged', handler);
+    return () => window.removeEventListener('participationChanged', handler);
+  }, []);
+
   const handleFollowToggle = async () => {
     if (!isAuthenticated) return navigate('/login');
 
