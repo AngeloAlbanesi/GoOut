@@ -133,41 +133,62 @@ async function updateUserRefreshToken(userId, refreshToken) {
 
 // utile per operazioni di sola lettura (es. mostrare “Segui / Non segui” nella UI, conteggi, ecc.)
 async function isFollowing(followerId, followingId) {
-    return await prisma.follows.findUnique({
-        where: {
-            followerId_followingId: {
-                followerId: followerId,
-                followingId: followingId
-            }
-        }
-    });
+  const fId = Number(followerId);
+  const foId = Number(followingId);
+  if (!Number.isFinite(fId) || !Number.isFinite(foId)) return null;
+
+  return await prisma.follows.findUnique({
+    where: {
+      followerId_followingId: {
+        followerId: fId,
+        followingId: foId
+      }
+    }
+  });
 }
 
 async function followUser(followerId, followingId) {
-    if (followerId === followingId) throw new Error('SELF_FOLLOW');
+  const fId = Number(followerId);
+  const foId = Number(followingId);
 
-    const target = await prisma.user.findUnique({ where: { id: followingId } });
-    if (!target) throw new Error('TARGET_NOT_FOUND');
+  if (!Number.isFinite(fId) || !Number.isFinite(foId)) throw new Error('INVALID_ID');
 
-    try {
-        return await prisma.follows.create({
-            data: { followerId, followingId }
-        });
-    } catch (err) {
-        if (err.code === 'P2002') throw new Error('ALREADY_FOLLOWING');
-        throw err;
-    }
+  if (fId === foId) throw new Error('SELF_FOLLOW');
+
+  // verifica che follower esista (utile per messaggi di errore chiari)
+  const follower = await prisma.user.findUnique({ where: { id: fId } });
+  if (!follower) throw new Error('FOLLOWER_NOT_FOUND');
+
+  // verifica che target esista
+  const target = await prisma.user.findUnique({ where: { id: foId } });
+  if (!target) throw new Error('TARGET_NOT_FOUND');
+
+  try {
+    return await prisma.follows.create({
+      data: { followerId: fId, followingId: foId }
+    });
+  } catch (err) {
+    // PrismaClientKnownRequestError with code 'P2002' è constraint unique violato
+    if (err && err.code === 'P2002') throw new Error('ALREADY_FOLLOWING');
+    throw err;
+  }
 }
 
 async function unfollowUser(followerId, followingId) {
-    try {
-        return await prisma.follows.delete({
-            where: { followerId_followingId: { followerId, followingId } }
-        });
-    } catch (err) {
-        if (err.code === 'P2025') throw new Error('FOLLOW_NOT_FOUND');
-        throw err;
-    }
+  const fId = Number(followerId);
+  const foId = Number(followingId);
+
+  if (!Number.isFinite(fId) || !Number.isFinite(foId)) throw new Error('INVALID_ID');
+
+  try {
+    return await prisma.follows.delete({
+      where: { followerId_followingId: { followerId: fId, followingId: foId } }
+    });
+  } catch (err) {
+    // P2025: record not found
+    if (err && err.code === 'P2025') throw new Error('FOLLOW_NOT_FOUND');
+    throw err;
+  }
 }
 
 async function findPublicProfileById(id) {
