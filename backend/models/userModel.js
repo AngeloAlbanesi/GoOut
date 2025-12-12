@@ -191,6 +191,33 @@ async function unfollowUser(followerId, followingId) {
   }
 }
 
+async function findPublicProfileById(id) {
+    const user = await prisma.user.findUnique({
+        where: { id: Number(id) },
+        select: {
+            id: true,
+            username: true,
+            bio: true,
+            profilePictureUrl: true,
+            createdEvents: {
+                orderBy: { date: 'desc' },
+                include: {
+                    _count: { select: { registrations: true } }
+                }
+            }
+        }
+    });
+
+    if (user && user.createdEvents) {
+        user.createdEvents = user.createdEvents.map(event => {
+            const { _count, ...rest } = event;
+            return { ...rest, participantsCount: _count?.registrations ?? 0 };
+        });
+    }
+
+    return user;
+}
+
 module.exports = {
     createUser,
     findByEmail,
@@ -204,5 +231,6 @@ module.exports = {
     updateUserPassword,
     isFollowing,
     followUser,
-    unfollowUser
+    unfollowUser,
+    findPublicProfileById
 };

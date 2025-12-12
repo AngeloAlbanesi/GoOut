@@ -6,10 +6,22 @@ const isAuthenticated = require('../middleware/isAuthenticated.js');
 const uploadAvatar = require('../middleware/uploadAvatar.js');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { findById, updateUser, searchUsers, updateUserProfilePicture, updateUserPassword, isFollowing, followUser, unfollowUser } = require('../models/userModel.js');
 const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+
+// Unione delle funzioni importate da entrambi i branch
+const { 
+    findById, 
+    updateUser, 
+    searchUsers, 
+    updateUserProfilePicture, 
+    updateUserPassword, 
+    isFollowing, 
+    followUser, 
+    unfollowUser,
+    findPublicProfileById 
+} = require('../models/userModel.js');
 
 // GET /api/users/mieiDati - Ottiene i dati dell'utente autenticato
 router.get('/mieiDati', isAuthenticated, async (req, res) => {

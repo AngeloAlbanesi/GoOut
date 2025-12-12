@@ -86,8 +86,11 @@ export const userService = {
 
     // Search (da HEAD)
     searchUsers: (query) => { return apiClient.get('users/search', { params: { q: query } }); },
+    
+    // Public Profile
+    getPublicProfile: (id) => { return apiClient.get(`users/${id}`); },
 
-    // Avatar & Password (da branch feature)
+    // Funzionalità Avatar e Password (Mantenuti da HEAD)
     uploadAvatar: (file) => {
         const formData = new FormData();
         formData.append('avatar', file);
