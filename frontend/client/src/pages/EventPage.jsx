@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { eventService } from '../services/api';
 
@@ -44,30 +44,15 @@ export default function EventPage() {
       try {
         const { eventId, participating, user: u } = e.detail || {};
         
-        // Debug: log TUTTI gli eventi che arrivano
-        console.log('[EventPage] Event ricevuto:', { eventId, id, match: String(eventId) === String(id), participating });
-        
-        if (!eventId) {
-          console.log('[EventPage] eventId mancante');
-          return;
-        }
-        if (String(eventId) !== String(id)) {
-          console.log('[EventPage] Event non è per questo evento');
-          return;
-        }
+        if (!eventId || String(eventId) !== String(id)) return;
 
-        console.log('[EventPage] Processing event for questo evento:', { eventId, participating });
-
-        // Aggiorna il contatore dei partecipanti e lo stato di isParticipating
         setEvent(prev => {
           if (!prev) return prev;
           const currentCount = prev.participantsCount ?? 0;
           const nextCount = Math.max(0, currentCount + (participating ? 1 : -1));
-          console.log('[EventPage] Aggiornando event:', { currentCount, nextCount, participating });
           return { ...prev, participantsCount: nextCount, isParticipating: Boolean(participating) };
         });
 
-        // Aggiorna la lista dei partecipanti
         if (participating) {
           if (u && u.id) {
             setParticipants(prev => {
@@ -75,14 +60,12 @@ export default function EventPage() {
               return [...prev, { id: u.id, username: u.username || null, profilePictureUrl: u.profilePictureUrl || null, email: u.email || null }];
             });
           } else {
-            // Se non abbiamo i dati dell'utente, ricarica da server
             setLoadingParticipants(true);
             (async () => {
               try {
-                const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-                if (r.ok) {
-                  const d = await r.json();
-                  setParticipants(Array.isArray(d) ? d : (d.participants || []));
+                const r = await eventService.getEventDetails(id);
+                if (r.data) {
+                   setParticipants(r.data.participants || []);
                 }
               } finally {
                 setLoadingParticipants(false);
@@ -93,14 +76,12 @@ export default function EventPage() {
           if (u && u.id) {
             setParticipants(prev => prev.filter(p => String(p.id ?? p.userId ?? '') !== String(u.id)));
           } else {
-            // Se non abbiamo i dati dell'utente, ricarica da server
             setLoadingParticipants(true);
             (async () => {
               try {
-                const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-                if (r.ok) {
-                  const d = await r.json();
-                  setParticipants(Array.isArray(d) ? d : (d.participants || []));
+                const r = await eventService.getEventDetails(id);
+                if (r.data) {
+                   setParticipants(r.data.participants || []);
                 }
               } finally {
                 setLoadingParticipants(false);
@@ -110,14 +91,11 @@ export default function EventPage() {
         }
       } catch (err) {
         console.error('Errore gestione evento participationChanged:', err);
-        setLoadingParticipants(false);
       }
     };
 
-    // FIRST: se c'è un evento memorizzato, applicalo subito (race condition: evento emesso prima che il listener si registri)
     const lastEvent = window.__lastParticipationEvent;
     if (lastEvent && String(lastEvent.eventId) === String(id)) {
-      console.log('[EventPage] Found stored event, applying it before listener register:', lastEvent);
       try {
         handler({ detail: lastEvent });
       } finally {
@@ -125,10 +103,8 @@ export default function EventPage() {
       }
     }
 
-    console.log('[EventPage] Registering listener per eventId:', id);
     window.addEventListener('participationChanged', handler);
     return () => {
-      console.log('[EventPage] Rimuovendo listener');
       window.removeEventListener('participationChanged', handler);
     };
   }, [id]);
@@ -137,11 +113,10 @@ export default function EventPage() {
 
   const isUserParticipating = () => {
     if (!user) return false;
+    const uId = String(user.id ?? user.Id ?? '');
     return participants.some(p => {
-      const pid = p.id ?? p.userId ?? null;
-      if (pid != null) return String(pid) === String(user.id);
-      if (p.username && user.username) return String(p.username) === String(user.username);
-      return false;
+      const pId = String(p.id ?? p.userId ?? '');
+      return pId === uId;
     });
   };
 
@@ -169,11 +144,8 @@ export default function EventPage() {
           return [...prev, { id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl, email: user.email }];
         });
       } else {
-        const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-        if (r.ok) {
-          const d = await r.json();
-          setParticipants(Array.isArray(d) ? d : (d.participants || []));
-        }
+         const res = await eventService.getEventDetails(id);
+         setParticipants(res.data.participants || []);
       }
 
       setEvent(prev => {
@@ -205,11 +177,8 @@ export default function EventPage() {
           return true;
         }));
       } else {
-        const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-        if (r.ok) {
-          const d = await r.json();
-          setParticipants(Array.isArray(d) ? d : (d.participants || []));
-        }
+         const res = await eventService.getEventDetails(id);
+         setParticipants(res.data.participants || []);
       }
 
       setEvent(prev => {
@@ -227,7 +196,6 @@ export default function EventPage() {
     }
   };
 
-  // helper: render avatar image or initial (styling consistent with ProfilePage)
   const renderAvatar = (person, size = 40) => {
     const name = person?.username || person?.name || '';
     const initial = (name.trim().charAt(0) || 'U').toUpperCase();
@@ -243,7 +211,7 @@ export default function EventPage() {
     };
 
     if (imgUrl) {
-      return <img src={imgUrl} alt={person?.username || person?.name || 'utente'} style={{ ...commonStyle, objectFit: 'cover' }} />;
+      return <img src={`http://localhost:3001${imgUrl}`} alt={name} style={{ ...commonStyle, objectFit: 'cover' }} />;
     }
 
     return (
@@ -262,142 +230,159 @@ export default function EventPage() {
     );
   };
 
-  if (loading) return <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}><p>Caricamento evento...</p></main>;
-  if (error) return <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}><p style={{ color: 'red' }}>{error}</p></main>;
-  if (!event) return <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}><p>Evento non trovato.</p></main>;
+  if (loading) return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#09090b]"></div>
+      </div>
+  );
 
-  const eventDate = new Date(event.date);
+  if (error) return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+          <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900">{error}</h2>
+              <Link to="/" className="text-[#09090b] hover:underline mt-4 block">Torna alla Home</Link>
+          </div>
+      </div>
+  );
 
-  const goToUser = (userId) => {
-    if (!userId) return;
-    // Se stai cliccando sul tuo profilo, vai alla pagina profilo privata
-    if (user && String(user.id) === String(userId)) {
-      navigate('/profilo');
-    } else {
-      navigate(`/user/${userId}`);
-    }
-  };
+  if (!event) return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+          <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900">Evento non trovato.</h2>
+              <Link to="/" className="text-[#09090b] hover:underline mt-4 block">Torna alla Home</Link>
+          </div>
+      </div>
+  );
 
   return (
-    <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <h1 style={{ margin: 0 }}>{event.title}</h1>
-        <time style={{ color: '#6b7280' }}>{eventDate.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' , year: 'numeric' })}</time>
-      </header>
-
-      <div style={{ display: 'grid', gap: 10, marginTop: 16, marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <strong>Descrizione:</strong>
-          <div style={{ color: '#374151' }}>{event.description}</div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <strong>Luogo:</strong>
-          <div>{event.location || '—'}</div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <strong>Massimo partecipanti:</strong>
-          <div>{event.maxParticipants ?? '—'}</div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <strong>Organizzatore:</strong>
-          {event.creator ? (
-            (() => {
-              const creatorId = event.creator.id ?? event.creator.userId ?? null;
-              const clickable = !!creatorId;
-              return (
-                <div
-                  role={clickable ? 'button' : undefined}
-                  tabIndex={clickable ? 0 : -1}
-                  onClick={clickable ? () => goToUser(creatorId) : undefined}
-                  onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') goToUser(creatorId); } : undefined}
-                  aria-label={clickable ? `Apri profilo di ${event.creator.username || 'organizzatore'}` : undefined}
-                  style={{ display: 'flex', gap: 12, alignItems: 'center', cursor: clickable ? 'pointer' : 'default' }}
-                >
-                  {renderAvatar(event.creator, 36)}
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ color: '#09090b', fontWeight: 700, fontSize: 16 }}>
-                      {event.creator?.username ?? '—'}
-                    </span>
-                    <span style={{ color: '#6b7280', fontSize: 13 }}>
-                      {event.creator?.email || ''}
-                    </span>
-                  </div>
+    <div className="min-h-screen bg-white py-12 px-4 sm:px-6 lg:px-8 font-sans">
+        <div className="max-w-3xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+                {/* Header */}
+                <div className="bg-[#09090b] px-8 py-8 md:px-12 md:py-10">
+                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{event.title}</h1>
+                    <p className="text-gray-400 text-sm uppercase tracking-wider font-semibold">Dettagli Evento</p>
                 </div>
-              );
-            })()
-          ) : (
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              {renderAvatar({}, 36)}
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ color: '#09090b', fontWeight: 700, fontSize: 16 }}>—</span>
-                <span style={{ color: '#6b7280', fontSize: 13 }} />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ marginLeft: 'auto' }}>
-          {event?.isParticipating ? (
-            <button onClick={handleCancelParticipation} disabled={actionLoading} style={{ padding: '6px 10px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none' }}>
-              {actionLoading ? 'Attendere...' : 'Annulla partecipazione'}
-            </button>
-          ) : (
-            <button onClick={handleParticipate} disabled={actionLoading || (event?.maxParticipants && participants.length >= event.maxParticipants)} style={{ padding: '6px 10px', borderRadius: 6, background: '#10b981', color: '#fff', border: 'none' }}>
-              {actionLoading ? 'Attendere...' : 'Partecipa'}
-            </button>
-          )}
-        </div>
-      </div>
+                {/* Body */}
+                <div className="p-8 md:p-12 space-y-10">
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Data e Ora</span>
+                            <div className="flex items-center text-[#09090b] font-medium text-lg">
+                                <span className="mr-3 text-2xl">📅</span>
+                                {new Date(event.date).toLocaleDateString('it-IT', { 
+                                    weekday: 'long', 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                })}
+                            </div>
+                        </div>
 
-      <section>
-        <h2>Partecipanti ({participants.length})</h2>
-        {loadingParticipants ? (
-          <p>Caricamento partecipanti...</p>
-        ) : participants.length === 0 ? (
-          <p>Nessun partecipante registrato.</p>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {participants.map(p => {
-              const userId = p.id ?? p.userId ?? null;
-              const clickable = !!userId;
-              return (
-                <li
-                  key={userId ?? p.username ?? Math.random()}
-                  style={{
-                    display: 'flex',
-                    gap: 12,
-                    alignItems: 'center',
-                    padding: '12px 0',
-                    borderBottom: '1px solid #f3f4f6'
-                  }}
-                >
-                  <div
-                    role={clickable ? 'button' : undefined}
-                    tabIndex={clickable ? 0 : undefined}
-                    onClick={clickable ? () => goToUser(userId) : undefined}
-                    onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') goToUser(userId); } : undefined}
-                    style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%', cursor: clickable ? 'pointer' : 'default' }}
-                    aria-label={clickable ? `Apri profilo di ${p.username || 'utente'}` : undefined}
-                  >
-                    {renderAvatar(p, 48)}
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ color: '#09090b', fontWeight: 700, fontSize: 16 }}>
-                        {p.username || p.name || `Utente ${userId ?? ''}`}
-                      </span>
-                      <span style={{ fontSize: 13, color: '#6b7280' }}>{p.email || ''}</span>
+                        <div className="space-y-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Luogo</span>
+                            <div className="flex items-center text-[#09090b] font-medium text-lg">
+                                <span className="mr-3 text-2xl">📍</span>
+                                {event.location}
+                            </div>
+                        </div>
+
+                        {event.creator && (
+                            <div className="space-y-2">
+                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Organizzatore</span>
+                                <Link 
+                                    to={`/user/${event.creator.id}`}
+                                    className="flex items-center text-[#09090b] font-medium text-lg hover:underline group"
+                                >
+                                    <span className="mr-3 text-2xl group-hover:scale-110 transition-transform">👤</span>
+                                    {event.creator.username}
+                                </Link>
+                            </div>
+                        )}
                     </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-    </main>
+
+                    {/* Description */}
+                    <div className="space-y-3">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Descrizione</span>
+                        <div className="text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-2xl border border-gray-100 text-lg">
+                            {event.description}
+                        </div>
+                    </div>
+
+                    {/* Participation Section */}
+                    <div className="bg-gray-50 rounded-2xl p-8 border border-gray-100">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <span className="text-sm font-bold text-[#09090b] uppercase tracking-wider">Stato Partecipazione</span>
+                                <div className="text-sm font-medium text-gray-600 mt-1">
+                                    <span className="text-[#09090b] text-lg font-bold">{event.participantsCount}</span> 
+                                    <span className="text-gray-400 mx-1">/</span> 
+                                    {event.maxParticipants} partecipanti
+                                </div>
+                            </div>
+                            
+                            {isUserParticipating() ? (
+                                <button
+                                    onClick={handleCancelParticipation}
+                                    disabled={actionLoading}
+                                    className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 transform hover:-translate-y-0.5"
+                                >
+                                    {actionLoading ? '...' : 'Annulla partecipazione'}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleParticipate}
+                                    disabled={actionLoading || (event.maxParticipants && event.participantsCount >= event.maxParticipants)}
+                                    className="px-6 py-3 bg-[#09090b] hover:bg-gray-800 text-white text-sm font-bold rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5"
+                                >
+                                    {actionLoading ? '...' : (event.maxParticipants && event.participantsCount >= event.maxParticipants ? 'Sold Out' : 'Partecipa')}
+                                </button>
+                            )}
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div 
+                                className="bg-[#09090b] h-3 rounded-full transition-all duration-700 ease-out" 
+                                style={{ width: `${Math.min(((event.participantsCount || 0) / event.maxParticipants) * 100, 100)}%` }}
+                            ></div>
+                        </div>
+                    </div>
+
+                    {/* Participants List */}
+                    <div>
+                        <h3 className="text-xl font-bold text-[#09090b] mb-6">Partecipanti</h3>
+                        {loadingParticipants ? (
+                            <div className="text-center py-8 text-gray-500 animate-pulse">Caricamento partecipanti...</div>
+                        ) : participants.length === 0 ? (
+                            <div className="text-center py-8 bg-gray-50 rounded-2xl border border-gray-100 border-dashed">
+                                <p className="text-gray-500 italic">Nessun partecipante ancora.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {participants.map(p => (
+                                    <Link 
+                                        key={p.id} 
+                                        to={`/user/${p.id}`} 
+                                        className="flex items-center space-x-4 p-4 hover:bg-gray-50 rounded-2xl transition-all border border-transparent hover:border-gray-100 group"
+                                    >
+                                        <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-gray-100 shadow-sm group-hover:border-[#09090b] transition-colors">
+                                            {renderAvatar(p, 48)}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-[#09090b] group-hover:underline text-lg">{p.username}</p>
+                                            {p.email && <p className="text-xs text-gray-400 truncate max-w-[150px]">{p.email}</p>}
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
   );
 }
