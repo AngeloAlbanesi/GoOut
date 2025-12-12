@@ -86,6 +86,10 @@ function PublicProfilePage() {
                                 <span className="text-3xl font-bold text-[#09090b]">{profileData.createdEvents?.length || 0}</span>
                                 <span className="text-sm text-gray-500 font-medium">Eventi Creati</span>
                             </div>
+                            <div className="flex flex-col">
+                                <span className="text-3xl font-bold text-[#09090b]">{profileData.participatedEvents?.length || 0}</span>
+                                <span className="text-sm text-gray-500 font-medium">Partecipazioni</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -129,6 +133,56 @@ function PublicProfilePage() {
                                     <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
                                         <button
                                             onClick={() => setSelectedEvent({ ...event, creator: profileData })}
+                                            className="w-full text-center text-gray-600 hover:text-[#09090b] font-semibold text-sm transition-colors"
+                                        >
+                                            Dettagli
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Eventi a cui partecipa Section */}
+                <div className="space-y-8">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-6">
+                        <h2 className="text-3xl font-bold text-[#09090b] tracking-tight">
+                            Eventi a cui partecipa
+                        </h2>
+                    </div>
+
+                    {!profileData.participatedEvents || profileData.participatedEvents.length === 0 ? (
+                        <div className="bg-gray-50 rounded-3xl p-16 text-center border border-gray-100">
+                            <p className="text-gray-500 text-xl font-light">Nessuna partecipazione.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {profileData.participatedEvents.map(event => (
+                                <div key={event.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col group overflow-hidden">
+                                    <div className="p-8 flex-1 space-y-6">
+                                        <div className="flex justify-between items-start">
+                                            <h3 className="text-2xl font-bold text-[#09090b] line-clamp-2 group-hover:text-gray-700 transition-colors">{event.title}</h3>
+                                        </div>
+                                        <div className="space-y-3 text-sm text-gray-600">
+                                            <div className="flex items-center">
+                                                <span className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-[#09090b] mr-3 text-lg">📅</span>
+                                                <span className="font-medium text-gray-900">
+                                                    {new Date(event.date).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' })}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <span className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-[#09090b] mr-3 text-lg">📍</span>
+                                                <span className="line-clamp-1 font-medium text-gray-900">{event.location}</span>
+                                            </div>
+                                            <div className="pt-2 text-xs text-gray-500 line-clamp-3">
+                                                {event.description}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
+                                        <button
+                                            onClick={() => setSelectedEvent({ ...event })}
                                             className="w-full text-center text-gray-600 hover:text-[#09090b] font-semibold text-sm transition-colors"
                                         >
                                             Dettagli

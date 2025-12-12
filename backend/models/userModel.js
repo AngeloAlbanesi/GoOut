@@ -204,15 +204,38 @@ async function findPublicProfileById(id) {
                 include: {
                     _count: { select: { registrations: true } }
                 }
+            },
+            registrations: {
+                include: {
+                    event: {
+                        include: {
+                            _count: { select: { registrations: true } }
+                        }
+                    }
+                },
+                orderBy: { registeredAt: 'desc' }
             }
         }
     });
 
-    if (user && user.createdEvents) {
-        user.createdEvents = user.createdEvents.map(event => {
-            const { _count, ...rest } = event;
-            return { ...rest, participantsCount: _count?.registrations ?? 0 };
-        });
+    if (user) {
+        if (user.createdEvents) {
+            user.createdEvents = user.createdEvents.map(event => {
+                const { _count, ...rest } = event;
+                return { ...rest, participantsCount: _count?.registrations ?? 0 };
+            });
+        }
+
+        if (user.registrations) {
+            user.participatedEvents = user.registrations.map(reg => {
+                const event = reg.event;
+                const { _count, ...rest } = event;
+                return { ...rest, participantsCount: _count?.registrations ?? 0 };
+            });
+            delete user.registrations;
+        } else {
+            user.participatedEvents = [];
+        }
     }
 
     return user;

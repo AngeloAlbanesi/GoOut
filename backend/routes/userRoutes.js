@@ -159,93 +159,21 @@ router.patch('/me/password', isAuthenticated, async (req, res) => {
     }
 });
 
-// GET /api/users/:id - profilo pubblico (include counts e pochi eventi futuri)
-router.get('/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (Number.isNaN(id)) return res.status(400).json({ error: 'ID non valido' });
-
-    // Recupera utente (usa il model già presente)
-    const user = await findById(id);
-    if (!user) return res.status(404).json({ error: 'Utente non trovato' });
-
-    const { passwordHash, refreshToken, ...userData } = user;
-
-    // counts followers / following — proteggiamo con try/catch separato
-    let followersCount = 0;
-    let followingCount = 0;
+// GET /api/users/:id - Profilo pubblico
+router.get('/:id', isAuthenticated, async (req, res) => {
     try {
-      followersCount = await prisma.follows.count({ where: { followingId: id } });
-      followingCount = await prisma.follows.count({ where: { followerId: id } });
-    } catch (err) {
-      console.error('Errore nel conteggio followers/following:', err);
-      // non blocchiamo la risposta se il conteggio fallisce: restituiamo 0
-    }
+        const { id } = req.params;
+        const user = await findPublicProfileById(id);
 
-    // eventi futuri dell'utente (max 10) — protetto
-    let mappedEvents = [];
-    try {
-      const now = new Date();
-      const events = await prisma.event.findMany({
-        where: { creatorId: id, date: { gte: now } },
-        orderBy: { date: 'asc' },
-        take: 10,
-        include: {
-          _count: { select: { registrations: true } },
-          creator: { select: { id: true, username: true, profilePictureUrl: true } }
+        if (!user) {
+            return res.status(404).json({ error: 'Utente non trovato', code: 404 });
         }
-      });
 
-      mappedEvents = events.map(e => {
-        const { _count, ...rest } = e;
-        return { ...rest, participantsCount: _count?.registrations ?? 0 };
-      });
+        return res.status(200).json(user);
     } catch (err) {
-      console.error('Errore nel recupero eventi pubblici utente:', err);
-      // proseguiamo restituendo lista vuota di eventi
+        console.error('Errore nel recupero profilo pubblico:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
     }
-
-    // se la richiesta include un cookie JWT valido, ricaviamo l'id del richiedente
-    let currentlyFollowing = false;
-    try {
-      let requestingUserId;
-      const token = req.cookies && req.cookies.token;
-      if (token) {
-        try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET);
-          requestingUserId = decoded?.Id;
-        } catch (e) {
-          // token non valido: ignoriamo (la rotta resta pubblica)
-          requestingUserId = undefined;
-        }
-      }
-
-      if (requestingUserId) {
-        const rel = await isFollowing(requestingUserId, id);
-        currentlyFollowing = !!rel;
-      }
-    } catch (err) {
-      console.error('Errore nel controllo relazione follow (non bloccante):', err);
-      // manteniamo currentlyFollowing = false
-    }
-
-    return res.json({
-      user: {
-        id: userData.id,
-        username: userData.username,
-        bio: userData.bio || '',
-        profilePictureUrl: userData.profilePictureUrl || null,
-        dateOfBirth: userData.dateOfBirth || null
-      },
-      followersCount,
-      followingCount,
-      currentlyFollowing,
-      events: mappedEvents
-    });
-  } catch (err) {
-    console.error('Errore nel recupero profilo pubblico:', err, err?.stack);
-    return res.status(500).json({ error: 'Errore interno del server' });
-  }
 });
 
 // POST /api/users/:id/follow - segui utente (richiede auth)

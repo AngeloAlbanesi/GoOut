@@ -133,9 +133,6 @@ function App() {
                         <CreateEventPage />
                     </ProtectedRoute>
                 } />
-
-                {/* Rotta per la pagina pubblica utente */}
-                <Route path="/user/:id" element={<UserPublicPage />} />
             </Routes>
         </div>
     );
