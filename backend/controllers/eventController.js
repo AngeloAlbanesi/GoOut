@@ -165,9 +165,18 @@ async function getMyEvents(req, res) {
         const userId = req.id;
         const events = await prisma.event.findMany({
             where: { creatorId: userId },
-            orderBy: { date: 'asc' }
+            orderBy: { date: 'asc' },
+            include: {
+                _count: { select: { registrations: true } }
+            }
         });
-        res.json(events);
+
+        const mapped = events.map(e => {
+            const { _count, ...rest } = e;
+            return { ...rest, participantsCount: _count?.registrations ?? 0 };
+        });
+
+        res.json(mapped);
     } catch (error) {
         console.error("Errore nel recupero dei miei eventi:", error);
         res.status(500).json({ error: 'Errore interno del server.' });

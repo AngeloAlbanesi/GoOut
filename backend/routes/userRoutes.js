@@ -4,7 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const isAuthenticated = require('../middleware/isAuthenticated.js');
 const uploadAvatar = require('../middleware/uploadAvatar.js');
-const { findById, updateUser, searchUsers, updateUserProfilePicture, updateUserPassword } = require('../models/userModel.js');
+const { findById, updateUser, searchUsers, updateUserProfilePicture, updateUserPassword, findPublicProfileById } = require('../models/userModel.js');
 const fs = require('fs');
 const path = require('path');
 
@@ -140,6 +140,23 @@ router.patch('/me/password', isAuthenticated, async (req, res) => {
         return res.status(200).json({ message: 'Password aggiornata con successo' });
     } catch (err) {
         console.error('Errore nel cambio password:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
+    }
+});
+
+// GET /api/users/:id - Profilo pubblico
+router.get('/:id', isAuthenticated, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await findPublicProfileById(id);
+
+        if (!user) {
+            return res.status(404).json({ error: 'Utente non trovato', code: 404 });
+        }
+
+        return res.status(200).json(user);
+    } catch (err) {
+        console.error('Errore nel recupero profilo pubblico:', err);
         return res.status(500).json({ error: 'Errore interno del server', code: 500 });
     }
 });
