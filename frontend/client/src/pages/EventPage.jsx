@@ -42,17 +42,24 @@ export default function EventPage() {
   useEffect(() => {
     const handler = (e) => {
       try {
-        const { eventId, participating, user: u } = e.detail || {};
+        const { eventId, participating, user: u, origin } = e.detail || {};
         
         if (!eventId || String(eventId) !== String(id)) return;
+        
+        // Ignore events originating from this page itself, as it handles its own updates via API fetch
+        if (origin === 'page') return;
 
         setEvent(prev => {
           if (!prev) return prev;
+          // Guard clause: If state already matches the target status, ignore to prevent double-counting
+          if (prev.isParticipating === Boolean(participating)) return prev;
+
           const currentCount = prev.participantsCount ?? 0;
           const nextCount = Math.max(0, currentCount + (participating ? 1 : -1));
           return { ...prev, participantsCount: nextCount, isParticipating: Boolean(participating) };
         });
 
+        // Update participants list if we have user info, otherwise trigger a background refresh
         if (participating) {
           if (u && u.id) {
             setParticipants(prev => {
@@ -60,33 +67,19 @@ export default function EventPage() {
               return [...prev, { id: u.id, username: u.username || null, profilePictureUrl: u.profilePictureUrl || null, email: u.email || null }];
             });
           } else {
-            setLoadingParticipants(true);
-            (async () => {
-              try {
-                const r = await eventService.getEventDetails(id);
-                if (r.data) {
-                   setParticipants(r.data.participants || []);
-                }
-              } finally {
-                setLoadingParticipants(false);
-              }
-            })();
+            // Background refresh if user details missing
+            eventService.getEventDetails(id).then(r => {
+                if (r.data) setParticipants(r.data.participants || []);
+            }).catch(console.error);
           }
         } else {
           if (u && u.id) {
             setParticipants(prev => prev.filter(p => String(p.id ?? p.userId ?? '') !== String(u.id)));
           } else {
-            setLoadingParticipants(true);
-            (async () => {
-              try {
-                const r = await eventService.getEventDetails(id);
-                if (r.data) {
-                   setParticipants(r.data.participants || []);
-                }
-              } finally {
-                setLoadingParticipants(false);
-              }
-            })();
+             // Background refresh
+             eventService.getEventDetails(id).then(r => {
+                if (r.data) setParticipants(r.data.participants || []);
+            }).catch(console.error);
           }
         }
       } catch (err) {
@@ -134,25 +127,13 @@ export default function EventPage() {
     setActionLoading(true);
     try {
       await eventService.participate(id);
-
-      if (user) {
-        setParticipants(prev => {
-          if (prev.some(p => {
-            const pid = p.id ?? p.userId ?? null;
-            return pid != null ? String(pid) === String(user.id) : (p.username && user.username && String(p.username) === String(user.username));
-          })) return prev;
-          return [...prev, { id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl, email: user.email }];
-        });
-      } else {
-         const res = await eventService.getEventDetails(id);
-         setParticipants(res.data.participants || []);
+      
+      // Fetch fresh data from server to ensure accuracy (prevents race conditions/double counting)
+      const res = await eventService.getEventDetails(id);
+      if (res.data) {
+          setEvent(res.data);
+          setParticipants(res.data.participants || []);
       }
-
-      setEvent(prev => {
-        if (!prev) return prev;
-        const currentCount = prev.participantsCount ?? (Array.isArray(prev.participants) ? prev.participants.length : participants.length);
-        return { ...prev, participantsCount: currentCount + 1, isParticipating: true };
-      });
 
       emitParticipationEvent(true);
     } catch (err) {
@@ -169,23 +150,12 @@ export default function EventPage() {
     try {
       await eventService.cancelParticipation(id);
 
-      if (user) {
-        setParticipants(prev => prev.filter(p => {
-          const pid = p.id ?? p.userId ?? null;
-          if (pid != null) return String(pid) !== String(user.id);
-          if (p.username && user.username) return String(p.username) !== String(user.username);
-          return true;
-        }));
-      } else {
-         const res = await eventService.getEventDetails(id);
-         setParticipants(res.data.participants || []);
+      // Fetch fresh data from server to ensure accuracy
+      const res = await eventService.getEventDetails(id);
+      if (res.data) {
+          setEvent(res.data);
+          setParticipants(res.data.participants || []);
       }
-
-      setEvent(prev => {
-        if (!prev) return prev;
-        const currentCount = prev.participantsCount ?? (Array.isArray(prev.participants) ? prev.participants.length : participants.length);
-        return { ...prev, participantsCount: Math.max(0, currentCount - 1), isParticipating: false };
-      });
 
       emitParticipationEvent(false);
     } catch (err) {
