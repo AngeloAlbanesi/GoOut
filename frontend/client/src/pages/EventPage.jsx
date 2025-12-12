@@ -255,130 +255,157 @@ export default function EventPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white py-12 px-4 sm:px-6 lg:px-8 font-sans">
-        <div className="max-w-3xl mx-auto">
-            <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-                {/* Header */}
-                <div className="bg-[#09090b] px-8 py-8 md:px-12 md:py-10">
-                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{event.title}</h1>
-                    <p className="text-gray-400 text-sm uppercase tracking-wider font-semibold">Dettagli Evento</p>
+    <div className="min-h-screen bg-gray-50 font-sans pb-20">
+        {/* Full Width Header */}
+        <div className="w-full bg-[#09090b] text-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+                <div className="max-w-4xl">
+                    <p className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-4">Evento</p>
+                    <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 leading-tight">{event.title}</h1>
+                    
+                    {event.creator && (
+                        <div className="flex items-center space-x-4">
+                            <Link to={`/user/${event.creator.id}`} className="group flex items-center space-x-3">
+                                <div className="border-2 border-white/20 rounded-full group-hover:border-white transition-colors">
+                                    {renderAvatar(event.creator, 48)}
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-400 uppercase tracking-wide font-semibold">Organizzato da</p>
+                                    <p className="text-white font-bold text-lg group-hover:underline">{event.creator.username}</p>
+                                </div>
+                            </Link>
+                        </div>
+                    )}
                 </div>
+            </div>
+        </div>
 
-                {/* Body */}
-                <div className="p-8 md:p-12 space-y-10">
-                    {/* Info Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-2">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Data e Ora</span>
-                            <div className="flex items-center text-[#09090b] font-medium text-lg">
-                                <span className="mr-3 text-2xl">📅</span>
-                                {new Date(event.date).toLocaleDateString('it-IT', { 
-                                    weekday: 'long', 
-                                    year: 'numeric', 
-                                    month: 'long', 
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Luogo</span>
-                            <div className="flex items-center text-[#09090b] font-medium text-lg">
-                                <span className="mr-3 text-2xl">📍</span>
-                                {event.location}
-                            </div>
-                        </div>
-
-                        {event.creator && (
-                            <div className="space-y-2">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Organizzatore</span>
-                                <Link 
-                                    to={`/user/${event.creator.id}`}
-                                    className="flex items-center text-[#09090b] font-medium text-lg hover:underline group"
-                                >
-                                    <span className="mr-3 text-2xl group-hover:scale-110 transition-transform">👤</span>
-                                    {event.creator.username}
-                                </Link>
-                            </div>
-                        )}
-                    </div>
-
+        {/* Content Layout */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+                
+                {/* Left Column: Main Content */}
+                <div className="lg:col-span-2 space-y-12">
+                    
                     {/* Description */}
-                    <div className="space-y-3">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Descrizione</span>
-                        <div className="text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-2xl border border-gray-100 text-lg">
+                    <section className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+                        <h2 className="text-2xl font-bold text-[#09090b] mb-6">Descrizione</h2>
+                        <div className="text-gray-700 leading-relaxed text-lg whitespace-pre-wrap">
                             {event.description}
                         </div>
-                    </div>
-
-                    {/* Participation Section */}
-                    <div className="bg-gray-50 rounded-2xl p-8 border border-gray-100">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <span className="text-sm font-bold text-[#09090b] uppercase tracking-wider">Stato Partecipazione</span>
-                                <div className="text-sm font-medium text-gray-600 mt-1">
-                                    <span className="text-[#09090b] text-lg font-bold">{event.participantsCount}</span> 
-                                    <span className="text-gray-400 mx-1">/</span> 
-                                    {event.maxParticipants} partecipanti
-                                </div>
-                            </div>
-                            
-                            {isUserParticipating() ? (
-                                <button
-                                    onClick={handleCancelParticipation}
-                                    disabled={actionLoading}
-                                    className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 transform hover:-translate-y-0.5"
-                                >
-                                    {actionLoading ? '...' : 'Annulla partecipazione'}
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={handleParticipate}
-                                    disabled={actionLoading || (event.maxParticipants && event.participantsCount >= event.maxParticipants)}
-                                    className="px-6 py-3 bg-[#09090b] hover:bg-gray-800 text-white text-sm font-bold rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5"
-                                >
-                                    {actionLoading ? '...' : (event.maxParticipants && event.participantsCount >= event.maxParticipants ? 'Sold Out' : 'Partecipa')}
-                                </button>
-                            )}
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                            <div 
-                                className="bg-[#09090b] h-3 rounded-full transition-all duration-700 ease-out" 
-                                style={{ width: `${Math.min(((event.participantsCount || 0) / event.maxParticipants) * 100, 100)}%` }}
-                            ></div>
-                        </div>
-                    </div>
+                    </section>
 
                     {/* Participants List */}
-                    <div>
-                        <h3 className="text-xl font-bold text-[#09090b] mb-6">Partecipanti</h3>
+                    <section>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-[#09090b]">Partecipanti</h2>
+                            <span className="bg-gray-200 text-gray-700 py-1 px-3 rounded-full text-sm font-bold">{participants.length}</span>
+                        </div>
+                        
                         {loadingParticipants ? (
-                            <div className="text-center py-8 text-gray-500 animate-pulse">Caricamento partecipanti...</div>
+                            <div className="text-center py-12 text-gray-500 animate-pulse bg-white rounded-2xl border border-gray-100">Caricamento partecipanti...</div>
                         ) : participants.length === 0 ? (
-                            <div className="text-center py-8 bg-gray-50 rounded-2xl border border-gray-100 border-dashed">
+                            <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 border-dashed">
                                 <p className="text-gray-500 italic">Nessun partecipante ancora.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {participants.map(p => (
                                     <Link 
                                         key={p.id} 
                                         to={`/user/${p.id}`} 
-                                        className="flex items-center space-x-4 p-4 hover:bg-gray-50 rounded-2xl transition-all border border-transparent hover:border-gray-100 group"
+                                        className="flex items-center space-x-4 p-4 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group"
                                     >
-                                        <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-gray-100 shadow-sm group-hover:border-[#09090b] transition-colors">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border border-gray-100 shadow-inner">
                                             {renderAvatar(p, 48)}
                                         </div>
-                                        <div>
-                                            <p className="font-bold text-[#09090b] group-hover:underline text-lg">{p.username}</p>
-                                            {p.email && <p className="text-xs text-gray-400 truncate max-w-[150px]">{p.email}</p>}
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-[#09090b] group-hover:underline text-lg truncate">{p.username}</p>
+                                            {p.email && <p className="text-xs text-gray-400 truncate">{p.email}</p>}
                                         </div>
                                     </Link>
                                 ))}
                             </div>
                         )}
+                    </section>
+                </div>
+
+                {/* Right Column: Sticky Action Card */}
+                <div className="lg:col-span-1">
+                    <div className="sticky top-8 space-y-6">
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                            <div className="p-8 space-y-8">
+                                {/* Date & Time */}
+                                <div className="flex items-start space-x-4">
+                                    <div className="bg-gray-50 p-3 rounded-xl">
+                                        <span className="text-3xl">📅</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-wide">Data e Ora</p>
+                                        <p className="text-[#09090b] font-medium text-lg mt-1">
+                                            {new Date(event.date).toLocaleDateString('it-IT', { 
+                                                weekday: 'long', 
+                                                day: 'numeric', 
+                                                month: 'long', 
+                                                year: 'numeric'
+                                            })}
+                                        </p>
+                                        <p className="text-gray-500">
+                                            {new Date(event.date).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Location */}
+                                <div className="flex items-start space-x-4">
+                                    <div className="bg-gray-50 p-3 rounded-xl">
+                                        <span className="text-3xl">📍</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-wide">Luogo</p>
+                                        <p className="text-[#09090b] font-medium text-lg mt-1 break-words">
+                                            {event.location}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <hr className="border-gray-100" />
+
+                                {/* Participation Status */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-bold text-gray-500">Posti occupati</span>
+                                        <span className="text-sm font-bold text-[#09090b]">
+                                            {event.participantsCount} / {event.maxParticipants}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden mb-6">
+                                        <div 
+                                            className="bg-[#09090b] h-2 rounded-full transition-all duration-700 ease-out" 
+                                            style={{ width: `${Math.min(((event.participantsCount || 0) / event.maxParticipants) * 100, 100)}%` }}
+                                        ></div>
+                                    </div>
+
+                                    {isUserParticipating() ? (
+                                        <button
+                                            onClick={handleCancelParticipation}
+                                            disabled={actionLoading}
+                                            className="w-full py-4 bg-red-50 hover:bg-red-100 text-red-600 text-base font-bold rounded-xl transition-all border border-transparent hover:border-red-200 disabled:opacity-50"
+                                        >
+                                            {actionLoading ? 'Elaborazione...' : 'Annulla partecipazione'}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={handleParticipate}
+                                            disabled={actionLoading || (event.maxParticipants && event.participantsCount >= event.maxParticipants)}
+                                            className="w-full py-4 bg-[#09090b] hover:bg-gray-800 text-white text-base font-bold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5"
+                                        >
+                                            {actionLoading ? 'Elaborazione...' : (event.maxParticipants && event.participantsCount >= event.maxParticipants ? 'Sold Out' : 'Partecipa all\'evento')}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
