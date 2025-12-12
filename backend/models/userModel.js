@@ -26,11 +26,24 @@ async function findByEmail(email) {
 
 //Restituisce un utente dato un id
 async function findById(id) {
-    return await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
         where: {
             id: id,
         },
+        include: {
+            _count: {
+                select: { followers: true, following: true }
+            }
+        }
     });
+
+    if (user) {
+        user.followersCount = user._count.followers;
+        user.followingCount = user._count.following;
+        delete user._count;
+    }
+
+    return user;
 }
 
 async function findByUsername(username) {
@@ -133,41 +146,122 @@ async function updateUserRefreshToken(userId, refreshToken) {
 
 // utile per operazioni di sola lettura (es. mostrare “Segui / Non segui” nella UI, conteggi, ecc.)
 async function isFollowing(followerId, followingId) {
-    return await prisma.follows.findUnique({
-        where: {
-            followerId_followingId: {
-                followerId: followerId,
-                followingId: followingId
-            }
-        }
-    });
+  const fId = Number(followerId);
+  const foId = Number(followingId);
+  if (!Number.isFinite(fId) || !Number.isFinite(foId)) return null;
+
+  return await prisma.follows.findUnique({
+    where: {
+      followerId_followingId: {
+        followerId: fId,
+        followingId: foId
+      }
+    }
+  });
 }
 
 async function followUser(followerId, followingId) {
-    if (followerId === followingId) throw new Error('SELF_FOLLOW');
+  const fId = Number(followerId);
+  const foId = Number(followingId);
 
-    const target = await prisma.user.findUnique({ where: { id: followingId } });
-    if (!target) throw new Error('TARGET_NOT_FOUND');
+  if (!Number.isFinite(fId) || !Number.isFinite(foId)) throw new Error('INVALID_ID');
 
-    try {
-        return await prisma.follows.create({
-            data: { followerId, followingId }
-        });
-    } catch (err) {
-        if (err.code === 'P2002') throw new Error('ALREADY_FOLLOWING');
-        throw err;
-    }
+  if (fId === foId) throw new Error('SELF_FOLLOW');
+
+  // verifica che follower esista (utile per messaggi di errore chiari)
+  const follower = await prisma.user.findUnique({ where: { id: fId } });
+  if (!follower) throw new Error('FOLLOWER_NOT_FOUND');
+
+  // verifica che target esista
+  const target = await prisma.user.findUnique({ where: { id: foId } });
+  if (!target) throw new Error('TARGET_NOT_FOUND');
+
+  try {
+    return await prisma.follows.create({
+      data: { followerId: fId, followingId: foId }
+    });
+  } catch (err) {
+    // PrismaClientKnownRequestError with code 'P2002' è constraint unique violato
+    if (err && err.code === 'P2002') throw new Error('ALREADY_FOLLOWING');
+    throw err;
+  }
 }
 
 async function unfollowUser(followerId, followingId) {
-    try {
-        return await prisma.follows.delete({
-            where: { followerId_followingId: { followerId, followingId } }
-        });
-    } catch (err) {
-        if (err.code === 'P2025') throw new Error('FOLLOW_NOT_FOUND');
-        throw err;
+  const fId = Number(followerId);
+  const foId = Number(followingId);
+
+  if (!Number.isFinite(fId) || !Number.isFinite(foId)) throw new Error('INVALID_ID');
+
+  try {
+    return await prisma.follows.delete({
+      where: { followerId_followingId: { followerId: fId, followingId: foId } }
+    });
+  } catch (err) {
+    // P2025: record not found
+    if (err && err.code === 'P2025') throw new Error('FOLLOW_NOT_FOUND');
+    throw err;
+  }
+}
+
+async function findPublicProfileById(id) {
+    const user = await prisma.user.findUnique({
+        where: { id: Number(id) },
+        select: {
+            id: true,
+            username: true,
+            bio: true,
+            profilePictureUrl: true,
+            _count: {
+                select: {
+                    followers: true,
+                    following: true
+                }
+            },
+            createdEvents: {
+                orderBy: { date: 'desc' },
+                include: {
+                    _count: { select: { registrations: true } }
+                }
+            },
+            registrations: {
+                include: {
+                    event: {
+                        include: {
+                            _count: { select: { registrations: true } }
+                        }
+                    }
+                },
+                orderBy: { registeredAt: 'desc' }
+            }
+        }
+    });
+
+    if (user) {
+        user.followersCount = user._count.followers;
+        user.followingCount = user._count.following;
+        delete user._count;
+
+        if (user.createdEvents) {
+            user.createdEvents = user.createdEvents.map(event => {
+                const { _count, ...rest } = event;
+                return { ...rest, participantsCount: _count?.registrations ?? 0 };
+            });
+        }
+
+        if (user.registrations) {
+            user.participatedEvents = user.registrations.map(reg => {
+                const event = reg.event;
+                const { _count, ...rest } = event;
+                return { ...rest, participantsCount: _count?.registrations ?? 0 };
+            });
+            delete user.registrations;
+        } else {
+            user.participatedEvents = [];
+        }
     }
+
+    return user;
 }
 
 module.exports = {
@@ -183,5 +277,6 @@ module.exports = {
     updateUserPassword,
     isFollowing,
     followUser,
-    unfollowUser
+    unfollowUser,
+    findPublicProfileById
 };

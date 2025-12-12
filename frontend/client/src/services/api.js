@@ -86,8 +86,11 @@ export const userService = {
 
     // Search (da HEAD)
     searchUsers: (query) => { return apiClient.get('users/search', { params: { q: query } }); },
+    
+    // Public Profile
+    getPublicProfile: (id) => { return apiClient.get(`users/${id}`); },
 
-    // Avatar & Password (da branch feature)
+    // Funzionalità Avatar e Password (Mantenuti da HEAD)
     uploadAvatar: (file) => {
         const formData = new FormData();
         formData.append('avatar', file);
@@ -99,6 +102,9 @@ export const userService = {
     },
     removeAvatar: () => { return apiClient.delete('users/me/avatar'); },
     changePassword: (data) => { return apiClient.patch('users/me/password', data); },
+    getPublicUser: (id) => apiClient.get(`users/${id}`),
+    followUser: (id) => apiClient.post(`users/${id}/follow`),
+    unfollowUser: (id) => apiClient.delete(`users/${id}/follow`),
 };
 
 export const eventService = {
@@ -108,7 +114,10 @@ export const eventService = {
     participate: (id) => apiClient.post(`events/${id}/participate`),
     cancelParticipation: (id) => apiClient.delete(`events/${id}/participate`),
     getMyEvents: () => apiClient.get('events/my-events'),
-    getMyParticipations: () => apiClient.get('events/my-participations')
+    getMyParticipations: () => apiClient.get('events/my-participations'),
+    getEventDetails: (id) => apiClient.get(`events/${id}`),
+    getEventParticipants: (id) => apiClient.get(`events/${id}/participants`),
+    getEventsFromFollowedUsers: (page = 1, limit = 10) => apiClient.get('events/from-followed', { params: { page, limit } }),
 };
 
 export async function fetchFutureEvents(page = 1, limit = 10) {

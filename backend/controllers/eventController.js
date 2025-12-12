@@ -165,9 +165,18 @@ async function getMyEvents(req, res) {
         const userId = req.id;
         const events = await prisma.event.findMany({
             where: { creatorId: userId },
-            orderBy: { date: 'asc' }
+            orderBy: { date: 'asc' },
+            include: {
+                _count: { select: { registrations: true } }
+            }
         });
-        res.json(events);
+
+        const mapped = events.map(e => {
+            const { _count, ...rest } = e;
+            return { ...rest, participantsCount: _count?.registrations ?? 0 };
+        });
+
+        res.json(mapped);
     } catch (error) {
         console.error("Errore nel recupero dei miei eventi:", error);
         res.status(500).json({ error: 'Errore interno del server.' });
@@ -200,28 +209,80 @@ async function getMyParticipations(req, res) {
 
 //Ottieni tutti gli eventi futuri impaginati
 async function getFutureEvents(req, res) {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 10);
+    const skip = (page - 1) * limit;
+
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    // includi eventi dalla mezzanotte di oggi in poi
+    const where = { date: { gte: startOfToday } };
+
+    const total = await prisma.event.count({ where });
+
+    const events = await prisma.event.findMany({
+      where,
+      orderBy: { date: 'asc' },
+      skip,
+      take: limit,
+      include: {
+        creator: { select: { username: true } },
+        _count: { select: { registrations: true } }
+      }
+    });
+
+    const mapped = events.map(e => {
+      const { _count, ...rest } = e;
+      return { ...rest, participantsCount: _count?.registrations ?? 0 };
+    });
+
+    res.json({ page, limit, total, events: mapped });
+  } catch (error) {
+    console.error("Errore nel recupero degli eventi futuri:", error);
+    res.status(500).json({ error: 'Errore interno del server.' });
+  }
+}
+
+//Ottieni eventi creati dagli utenti seguiti (paginated, include creator/_count)
+async function getEventsFromFollowedUsers(req, res) {
     try {
+        const userId = req.id;
+
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.max(1, parseInt(req.query.limit) || 10);
         const skip = (page - 1) * limit;
-        const currentDate = new Date();
 
-        const total = await prisma.event.count({
-            where: { date: { gt: currentDate } }
+        // Recupera gli ID degli utenti seguiti
+        const followedRows = await prisma.follows.findMany({
+            where: { followerId: userId },
+            select: { followingId: true }
         });
 
+        const followedUserIds = followedRows.map(f => f.followingId);
+
+        // se non segue nessuno, ritorniamo subito un oggetto paginato vuoto
+        if (followedUserIds.length === 0) {
+            return res.json({ page, limit, total: 0, events: [] });
+        }
+
+        const where = { creatorId: { in: followedUserIds }, date: { gte: new Date() } };
+
+        const total = await prisma.event.count({ where });
+
         const events = await prisma.event.findMany({
-            where: { date: { gt: currentDate } },
+            where,
             orderBy: { date: 'asc' },
             skip,
             take: limit,
             include: {
-                creator: { select: { username: true } },
+                creator: { select: { id: true, username: true, profilePictureUrl: true } },
                 _count: { select: { registrations: true } }
             }
         });
 
-        // espone participantsCount
         const mapped = events.map(e => {
             const { _count, ...rest } = e;
             return { ...rest, participantsCount: _count?.registrations ?? 0 };
@@ -229,55 +290,54 @@ async function getFutureEvents(req, res) {
 
         res.json({ page, limit, total, events: mapped });
     } catch (error) {
-        console.error("Errore nel recupero degli eventi futuri:", error);
-        res.status(500).json({ error: 'Errore interno del server.' });
-    }
-}
-
-//Ottieni eventi creati dagli utenti seguiti
-//Potenziale implementazione di impaginazione dei risultati
-async function getEventsFromFollowedUsers(req, res) {
-    try {
-        const userId = req.id;
-        // Recupera gli ID degli utenti seguiti
-        const followedUsers = await prisma.following.findMany({
-            where: { followerId: userId },
-            select: { followingId: true }
-        });
-
-        const followedUserIds = followedUsers.map(follow => follow.followingId);
-
-        // Recupera gli eventi creati dagli utenti seguiti
-        const events = await prisma.event.findMany({
-            where: { creatorId: { in: followedUserIds } },
-            orderBy: { date: 'asc' }
-        });
-
-        res.json(events);
-    } catch (error) {
         console.error("Errore nel recupero degli eventi degli utenti seguiti:", error);
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
 
-//Ottieni dettagli di un evento
+// Ottieni dettagli di un evento (inclusi partecipanti)
 async function getEventDetails(req, res) {
-    try {
-        const eventId = parseInt(req.params.id);
-        const event = await prisma.event.findUnique({
-            where: { id: eventId },
-            include: { creator: { select: { username: true } } }
-        });
+  try {
+    const eventId = parseInt(req.params.id, 10);
+    if (Number.isNaN(eventId)) return res.status(400).json({ error: 'ID evento non valido.' });
 
-        if (!event) {
-            return res.status(404).json({ error: 'Evento non trovato.' });
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        creator: { select: { id: true, username: true, profilePictureUrl: true } },
+        registrations: {
+          include: {
+            user: { select: { id: true, username: true, profilePictureUrl: true, email: true } }
+          },
+          orderBy: { registeredAt: 'asc' }
         }
+      }
+    });
 
-        res.json(event);
-    } catch (error) {
-        console.error("Errore nel recupero dei dettagli dell'evento:", error);
-        res.status(500).json({ error: 'Errore interno del server.' });
+    if (!event) {
+      return res.status(404).json({ error: 'Evento non trovato.' });
     }
+
+    // mappa le registrations in una lista di partecipanti più semplice
+    const participants = event.registrations.map(r => {
+      return {
+        id: r.user?.id ?? null,
+        username: r.user?.username ?? null,
+        profilePictureUrl: r.user?.profilePictureUrl ?? null,
+        email: r.user?.email ?? null,
+        registeredAt: r.registeredAt
+      };
+    });
+
+    // espone participants separatamente, senza le registrations raw
+    const { registrations, ...rest } = event;
+    const response = { ...rest, participants, participantsCount: participants.length };
+
+    return res.json(response);
+  } catch (error) {
+    console.error("Errore nel recupero dei dettagli dell'evento:", error);
+    res.status(500).json({ error: 'Errore interno del server.' });
+  }
 }
 
 module.exports = {

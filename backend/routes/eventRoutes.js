@@ -25,7 +25,7 @@ router.get('/future', eventController.getFutureEvents);
 // Eventi creati dagli utenti seguiti (richiede auth)
 router.get('/from-followed', isAuthenticated, eventController.getEventsFromFollowedUsers);
 
-// Dettagli di un singolo evento (richiede auth oppure rimuovi isAuthenticated per rendere pubblico)
-router.get('/:id', isAuthenticated, eventController.getEventDetails);
+// Dettagli di un singolo evento (richiede isAuthenticated per rendere privato)
+router.get('/:id', eventController.getEventDetails);
 
 module.exports = router;

@@ -4,9 +4,24 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const isAuthenticated = require('../middleware/isAuthenticated.js');
 const uploadAvatar = require('../middleware/uploadAvatar.js');
-const { findById, updateUser, searchUsers, updateUserProfilePicture, updateUserPassword } = require('../models/userModel.js');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');
+
+// Unione delle funzioni importate da entrambi i branch
+const { 
+    findById, 
+    updateUser, 
+    searchUsers, 
+    updateUserProfilePicture, 
+    updateUserPassword, 
+    isFollowing, 
+    followUser, 
+    unfollowUser,
+    findPublicProfileById 
+} = require('../models/userModel.js');
 
 // GET /api/users/mieiDati - Ottiene i dati dell'utente autenticato
 router.get('/mieiDati', isAuthenticated, async (req, res) => {
@@ -142,6 +157,91 @@ router.patch('/me/password', isAuthenticated, async (req, res) => {
         console.error('Errore nel cambio password:', err);
         return res.status(500).json({ error: 'Errore interno del server', code: 500 });
     }
+});
+
+// GET /api/users/:id - Profilo pubblico
+router.get('/:id', isAuthenticated, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await findPublicProfileById(id);
+
+        if (!user) {
+            return res.status(404).json({ error: 'Utente non trovato', code: 404 });
+        }
+
+        // Check if the current user is following the profile user
+        const following = await isFollowing(req.id, id);
+
+        return res.status(200).json({ ...user, isFollowing: !!following });
+    } catch (err) {
+        console.error('Errore nel recupero profilo pubblico:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
+    }
+});
+
+// POST /api/users/:id/follow - segui utente (richiede auth)
+router.post('/:id/follow', isAuthenticated, async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const followerId = req.id;
+    if (Number.isNaN(targetId)) return res.status(400).json({ error: 'ID non valido' });
+
+    await followUser(followerId, targetId);
+    return res.json({ message: 'Seguito con successo' });
+  } catch (err) {
+    console.error('Errore nel follow:', err);
+    // Gestione errori noti dal model
+    if (err && err.message === 'ALREADY_FOLLOWING') {
+      return res.status(400).json({ error: 'Già segui questo utente' });
+    }
+    if (err && err.message === 'INVALID_ID') {
+      return res.status(400).json({ error: 'ID non valido' });
+    }
+    if (err && err.message === 'SELF_FOLLOW') {
+      return res.status(400).json({ error: 'Non puoi seguire te stesso' });
+    }
+    if (err && err.message === 'FOLLOWER_NOT_FOUND') {
+      return res.status(401).json({ error: 'Utente non autenticato' });
+    }
+    if (err && err.message === 'TARGET_NOT_FOUND') {
+      return res.status(404).json({ error: 'Utente target non trovato' });
+    }
+
+    // Errore imprevisto: log e ritorna dettaglio per debug (temporaneo)
+    console.error('Errore followUser (model):', err, err.stack);
+    return res.status(500).json({
+      error: 'Errore interno durante il follow',
+      detail: err?.message || String(err),
+      stack: err?.stack
+    });
+  }
+});
+
+// DELETE /api/users/:id/follow - smetti di seguire (richiede auth)
+router.delete('/:id/follow', isAuthenticated, async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const followerId = req.id;
+    if (Number.isNaN(targetId)) return res.status(400).json({ error: 'ID non valido' });
+
+    await unfollowUser(followerId, targetId);
+    return res.json({ message: 'Unfollow avvenuto con successo' });
+  } catch (err) {
+    console.error('Errore nell\'unfollow:', err);
+    if (err && err.message === 'FOLLOW_NOT_FOUND') {
+      return res.status(404).json({ error: 'Relazione di follow non trovata' });
+    }
+    if (err && err.message === 'INVALID_ID') {
+      return res.status(400).json({ error: 'ID non valido' });
+    }
+
+    console.error('Errore unfollowUser (model):', err, err.stack);
+    return res.status(500).json({
+      error: 'Errore interno durante l\'unfollow',
+      detail: err?.message || String(err),
+      stack: err?.stack
+    });
+  }
 });
 
 module.exports = router;
