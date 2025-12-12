@@ -26,11 +26,24 @@ async function findByEmail(email) {
 
 //Restituisce un utente dato un id
 async function findById(id) {
-    return await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
         where: {
             id: id,
         },
+        include: {
+            _count: {
+                select: { followers: true, following: true }
+            }
+        }
     });
+
+    if (user) {
+        user.followersCount = user._count.followers;
+        user.followingCount = user._count.following;
+        delete user._count;
+    }
+
+    return user;
 }
 
 async function findByUsername(username) {
@@ -199,6 +212,12 @@ async function findPublicProfileById(id) {
             username: true,
             bio: true,
             profilePictureUrl: true,
+            _count: {
+                select: {
+                    followers: true,
+                    following: true
+                }
+            },
             createdEvents: {
                 orderBy: { date: 'desc' },
                 include: {
@@ -219,6 +238,10 @@ async function findPublicProfileById(id) {
     });
 
     if (user) {
+        user.followersCount = user._count.followers;
+        user.followingCount = user._count.following;
+        delete user._count;
+
         if (user.createdEvents) {
             user.createdEvents = user.createdEvents.map(event => {
                 const { _count, ...rest } = event;

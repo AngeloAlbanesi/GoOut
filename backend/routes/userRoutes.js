@@ -169,7 +169,10 @@ router.get('/:id', isAuthenticated, async (req, res) => {
             return res.status(404).json({ error: 'Utente non trovato', code: 404 });
         }
 
-        return res.status(200).json(user);
+        // Check if the current user is following the profile user
+        const following = await isFollowing(req.id, id);
+
+        return res.status(200).json({ ...user, isFollowing: !!following });
     } catch (err) {
         console.error('Errore nel recupero profilo pubblico:', err);
         return res.status(500).json({ error: 'Errore interno del server', code: 500 });

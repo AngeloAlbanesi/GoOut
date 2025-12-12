@@ -2,21 +2,32 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { userService } from '../services/api';
 import EventDetailsModal from '../components/EventDetailsModal';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE_URL = 'http://localhost:3001';
 
 function PublicProfilePage() {
     const { id } = useParams();
+    const { user: currentUser } = useAuth();
     const [profileData, setProfileData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [followersCount, setFollowersCount] = useState(0);
+    const [followingCount, setFollowingCount] = useState(0);
+    const [actionLoading, setActionLoading] = useState(false);
+
+    const isOwnProfile = currentUser?.id === Number(id);
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
                 const res = await userService.getPublicProfile(id);
                 setProfileData(res.data);
+                setIsFollowing(res.data.isFollowing);
+                setFollowersCount(res.data.followersCount || 0);
+                setFollowingCount(res.data.followingCount || 0);
             } catch (err) {
                 console.error("Errore nel recupero profilo pubblico:", err);
                 setError("Impossibile caricare il profilo.");
@@ -29,6 +40,26 @@ function PublicProfilePage() {
             fetchProfile();
         }
     }, [id]);
+
+    const handleFollowToggle = async () => {
+        if (actionLoading) return;
+        setActionLoading(true);
+        try {
+            if (isFollowing) {
+                await userService.unfollowUser(id);
+                setFollowersCount(prev => Math.max(0, prev - 1));
+            } else {
+                await userService.followUser(id);
+                setFollowersCount(prev => prev + 1);
+            }
+            setIsFollowing(!isFollowing);
+        } catch (err) {
+            console.error('Errore follow/unfollow:', err);
+            // Revert state on error if needed, but for now just log
+        } finally {
+            setActionLoading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -70,14 +101,29 @@ function PublicProfilePage() {
                         )}
                     </div>
                     <div className="flex-1 text-center md:text-left space-y-4">
-                        <div>
-                            <h2 className="text-3xl md:text-4xl font-bold text-[#09090b] tracking-tight mb-2">
-                                {profileData.username}
-                            </h2>
-                            {profileData.bio && (
-                                <p className="text-gray-500 text-lg max-w-2xl font-light">
-                                    {profileData.bio}
-                                </p>
+                        <div className="flex flex-col md:flex-row md:justify-between md:items-start w-full">
+                            <div>
+                                <h2 className="text-3xl md:text-4xl font-bold text-[#09090b] tracking-tight mb-2">
+                                    {profileData.username}
+                                </h2>
+                                {profileData.bio && (
+                                    <p className="text-gray-500 text-lg max-w-2xl font-light">
+                                        {profileData.bio}
+                                    </p>
+                                )}
+                            </div>
+                            {!isOwnProfile && (
+                                <button
+                                    onClick={handleFollowToggle}
+                                    disabled={actionLoading}
+                                    className={`mt-4 md:mt-0 px-6 py-2 rounded-xl font-semibold text-sm transition-all ${
+                                        isFollowing 
+                                        ? 'bg-gray-100 text-gray-800 hover:bg-gray-200' 
+                                        : 'bg-[#09090b] text-white hover:bg-gray-800'
+                                    }`}
+                                >
+                                    {actionLoading ? '...' : (isFollowing ? 'Smetti di seguire' : 'Segui')}
+                                </button>
                             )}
                         </div>
 
@@ -89,6 +135,14 @@ function PublicProfilePage() {
                             <div className="flex flex-col">
                                 <span className="text-3xl font-bold text-[#09090b]">{profileData.participatedEvents?.length || 0}</span>
                                 <span className="text-sm text-gray-500 font-medium">Partecipazioni</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-3xl font-bold text-[#09090b]">{followersCount}</span>
+                                <span className="text-sm text-gray-500 font-medium">Follower</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-3xl font-bold text-[#09090b]">{followingCount}</span>
+                                <span className="text-sm text-gray-500 font-medium">Seguiti</span>
                             </div>
                         </div>
                     </div>
