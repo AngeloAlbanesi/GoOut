@@ -126,6 +126,10 @@ async function changePassword(req, res) {
             return res.status(404).json({ error: 'Utente non trovato', code: 404 });
         }
 
+        if (!user.provider || user.provider !== 'LOCAL' || !user.passwordHash) {
+            return res.status(403).json({ error: 'Password change not allowed for non-local accounts', code: 403 });
+        }
+
         // Verifica password attuale
         const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
         if (!isMatch) {
