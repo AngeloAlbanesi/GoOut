@@ -482,29 +482,34 @@ function MieiDatiPage() {
                         </div>
                     </div>
 
-                    {/* Sezione Cambio Password */}
+                    
                     <div className="border-t border-gray-100 pt-8 mt-8">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-semibold text-[#09090b]">Sicurezza</h3>
-                            {!isEditingPassword && (
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-xl font-semibold text-[#09090b]">Sicurezza</h3>
                                 <button
-                                    onClick={() => setIsEditingPassword(true)}
-                                    className="px-4 py-2 text-[#09090b] font-semibold hover:bg-gray-100 rounded-lg transition-colors"
+                                    onClick={() => { if (profileData?.provider === 'LOCAL') setIsEditingPassword(true); }}
+                                    disabled={profileData?.provider !== 'LOCAL'}
+                                    className={`px-4 py-2 text-[#09090b] font-semibold rounded-lg transition-colors ${profileData?.provider !== 'LOCAL' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100'}`}
                                 >
                                     Cambia Password
                                 </button>
-                            )}
-                        </div>
-
-                        {passwordMessage.text && (
-                            <div className={`p-4 rounded-xl mb-4 font-medium ${passwordMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-                                }`}>
-                                {passwordMessage.text}
                             </div>
-                        )}
 
-                        {isEditingPassword ? (
-                            <div className="max-w-md space-y-4">
+                            {profileData?.provider !== 'LOCAL' && (
+                                <div className="p-4 rounded-xl bg-yellow-50 border border-yellow-100 text-yellow-800 mb-4">
+                                    Questa operazione non è disponibile per account autenticati tramite provider esterni (es. Google).
+                                </div>
+                            )}
+
+                            {passwordMessage.text && (
+                                <div className={`p-4 rounded-xl mb-4 font-medium ${passwordMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                                    }`}>
+                                    {passwordMessage.text}
+                                </div>
+                            )}
+
+                            {isEditingPassword ? (
+                                <div className="max-w-md space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Password Attuale</label>
                                     <input
@@ -571,7 +576,9 @@ function MieiDatiPage() {
                                 </div>
                             </div>
                         ) : (
-                            <p className="text-gray-500">La tua password è protetta. Clicca su "Cambia Password" per modificarla.</p>
+                            profileData?.provider === 'LOCAL' ? (
+                                <p className="text-gray-500">La tua password è protetta. Clicca su "Cambia Password" per modificarla.</p>
+                            ) : null
                         )}
                     </div>
                 </div>
