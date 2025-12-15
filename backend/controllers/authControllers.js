@@ -1,18 +1,19 @@
-//authController.js
 const validatoreEmail = require('validator')
 const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
-const { createUser, findByEmail, findById, updateUserRefreshToken, freeUsername, findByUsername} = require('../models/userModel.js');
+const { createUser, findByEmail, findById, updateUserRefreshToken, freeUsername, findByUsername, findByProviderId } = require('../models/userModel.js');
 const { path } = require('express/lib/application.js');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+
+
 // Server-side password validation helper
 function validatePasswordServer(pw) {
     const errors = [];
-    const minLength = 10; // keep same threshold as frontend
+    const minLength = 10;
     if (!pw || pw.length < minLength) errors.push(`La password deve essere di almeno ${minLength} caratteri.`);
     if (!/[A-Z]/.test(pw)) errors.push('Deve contenere almeno una lettera maiuscola.');
     if (!/[a-z]/.test(pw)) errors.push('Deve contenere almeno una lettera minuscola.');
@@ -21,20 +22,67 @@ function validatePasswordServer(pw) {
     return errors;
 }
 
+//Funzione centralizzata per generare e salvare i token
+async function generateAndSetTokens(user, res) {
+    const accessToken = jwt.sign(
+        { Id: user.id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "15m" }
+    );
+
+    const refreshToken = jwt.sign(
+        { Id: user.id },
+        process.env.REFRESH_TOKEN_SECRET,
+        { expiresIn: "7d" }
+    );
+
+    await updateUserRefreshToken(user.id, refreshToken);
+
+    res.cookie('token', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/api/auth/refresh-token',
+    });
+
+    return { accessToken, refreshToken };
+}
+
+
+
 async function register(req, res) {
     const { email, password, username, dateOfBirth } = req.body;
 
+    // Validazione email
     if (!validatoreEmail.isEmail(email)) {
         return res.status(400).json({ error: "Email non valida", code: 400, status: "bad request" });
     }
 
+    // Validazione password
     if (!password) {
         return res.status(400).json({ error: "Password mancante", code: 400, status: "bad request" });
     }
+
+    const pwErrors = validatePasswordServer(password);
+    if (pwErrors.length) {
+        return res.status(400).json({ error: 'Password non conforme', detail: pwErrors.join(' | '), code: 400, status: 'bad request' });
+    }
+
+    // Validazione username
     if (!await freeUsername(username)) {
         return res.status(409).json({ error: "L'username " + username + " non è disponibile", code: 409, status: "conflict" });
     }
 
+    // Validazione data di nascita
     if (!dateOfBirth) {
         return res.status(400).json({ error: "Data di nascita mancante", code: 400, status: "bad request" });
     }
@@ -48,123 +96,121 @@ async function register(req, res) {
     if (dateOfBirthObj > currentDate) {
         return res.status(400).json({ error: "Data di nascita non valida", code: 400, status: "bad request" });
     }
-    userEsistente = await findByEmail(email)
+
+    // Verifica email esistente
+    const userEsistente = await findByEmail(email);
     if (userEsistente) {
         return res.status(409).json({ error: "L'email " + email + " è collegata ad un account esistente", code: 409, status: "conflict" });
-    }
-
-    // Server-side password validation
-    const pwErrors = validatePasswordServer(password);
-    if (pwErrors.length) {
-        return res.status(400).json({ error: 'Password non conforme', detail: pwErrors.join(' | '), code: 400, status: 'bad request' });
     }
 
     try {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        console.log("data nascita modificata: " + dateOfBirthObj);
-        await createUser(email, passwordHash, username, dateOfBirthObj);
+        await createUser(
+            email,
+            passwordHash,
+            username,
+            dateOfBirthObj,
+            'LOCAL',
+            null
+        );
 
-        return res.status(201).json({ messaggio: "Utente creato con successo", code: 201, status: "created" });
+        // 🔥 Recupera l'utente appena creato e fa login automatico
+        const nuovoUtente = await findByEmail(email);
+        await generateAndSetTokens(nuovoUtente, res);
+
+        return res.status(201).json({
+            success: true,
+            data: {
+                Id: nuovoUtente.id,
+                email: nuovoUtente.email
+            },
+            code: 201,
+            status: "created"
+        });
 
     } catch (err) {
-        // try to extract more detail if available
         const detail = err?.message || (err?.response && JSON.stringify(err.response.data)) || String(err);
         return res.status(500).json({ errore: "Errore Interno creazione utente", detail, code: 500, status: "internal server error" });
     }
-
 }
 
 async function login(req, res) {
-
     const { user, password } = req.body;
-  
+
     if (!password) {
-        return res.status(400).json({ error: "Password mancante", code: 400, status: "bad request" });
+        return res.status(400).json({
+            error: "Password mancante",
+            code: 400,
+            status: "bad request"
+        });
     }
-    if(validatoreEmail.isEmail(user)){
-    userEsistente = await findByEmail(user)
-    }else{
-    userEsistente = await findByUsername(user)
+
+    const userEsistente = validatoreEmail.isEmail(user)
+        ? await findByEmail(user)
+        : await findByUsername(user);
+
+    if (!userEsistente) {
+        return res.status(401).json({
+            error: "Credenziali errate",
+            code: 401,
+            status: "unauthorized"
+        });
     }
 
-    if(!userEsistente) {
-                return res.status(401).json({ error: "Credenziali errate", code: 401, status: "bad request" });
+    // Blocco utenti Google
+    if (userEsistente.provider !== 'LOCAL' || !userEsistente.passwordHash) {
+        return res.status(401).json({
+            error: "Questo account utilizza Google",
+            code: 401,
+            status: "unauthorized"
+        });
     }
-      
-        let PasswordMatch = await bcrypt.compare(password,userEsistente.passwordHash)
-        if(PasswordMatch){
-                try {
-                    const accessToken = jwt.sign(
-                        {
-                            Id: userEsistente.id,
-                            email: userEsistente.email
-                        },
-                        process.env.JWT_SECRET,
-                        { expiresIn: "15m" }
-                    );
-                    const refreshToken = jwt.sign(
-                        {Id: userEsistente.id},
-                        process.env.REFRESH_TOKEN_SECRET,
-                        { expiresIn: "7d" }
-                    )
 
-                    await updateUserRefreshToken(userEsistente.id, refreshToken);
+    const passwordMatch = await bcrypt.compare(password, userEsistente.passwordHash);
+    if (!passwordMatch) {
+        return res.status(401).json({
+            error: "Credenziali errate",
+            code: 401,
+            status: "unauthorized"
+        });
+    }
 
-                    res.cookie('token', accessToken, {
-                        httpOnly: true, // Il cookie non è accessibile via JavaScript
-                        secure: process.env.NODE_ENV === 'production', // Invia solo su HTTPS in produzione
-                        sameSite: 'strict', // Protezione CSRF
-                        maxAge: 15 * 60 * 1000, // Scadenza del cookie in millisecondi (es. 1 ora)
-                        path: '/',
-                    });
+    // Usa la funzione centralizzata
+    await generateAndSetTokens(userEsistente, res);
 
-                    res.cookie('refreshToken', refreshToken, {
-                        httpOnly: true,
-                        secure: process.env.NODE_ENV === 'production',
-                        sameSite: 'strict',
-                        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 giorni    
-                        path: '/api/auth/refresh-token',    
-                    }); 
-
-                    return res.status(200).json({success: true,
-                            data: {
-                                Id: userEsistente.id,
-                                email: userEsistente.email
-                            }, code: 200, status: "ok"
-                    });      
-                } catch (err) 
-                { return res.status(500).json({errore: "Errore generazione token", code: 500, status: "internal server error"});}
-                
-
-        
-        }else {
-            return  res.status(401).json({errore: "credenziali errate", code: 401, status: "unauthorized"});
-        }
+    return res.status(200).json({
+        success: true,
+        data: {
+            Id: userEsistente.id,
+            email: userEsistente.email
+        },
+        code: 200,
+        status: "ok"
+    });
 }
 
-async function logout (req, res){
+async function logout(req, res) {
     try {
         const refreshToken = req.cookies.refreshToken;
         if (refreshToken) {
             const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-            if(decoded){
-            await updateUserRefreshToken(decoded.Id, null);
+            if (decoded) {
+                await updateUserRefreshToken(decoded.Id, null);
             }
         }
     } catch (err) {
         // Ignora gli errori relativi al token
     }
-    
+
     try {
         res.clearCookie('token', { path: '/' });
         res.clearCookie('refreshToken', { path: '/api/auth/refresh-token' });
         return res.status(200).json({ success: true, message: "Logout effettuato con successo", code: 200, status: "ok" });
-    } catch (err) {  
+    } catch (err) {
         return res.status(500).json({ success: false, errore: "Errore interno durante il logout", code: 500, status: "internal server error" });
     }
-
 }
 
 async function refreshToken(req, res) {
@@ -177,12 +223,13 @@ async function refreshToken(req, res) {
     try {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
         const user = await findById(decoded.Id);
-        
+
         if (!user || user.refreshToken !== refreshToken) {
             return res.status(403).json({ error: "Refresh token non valido", code: 403, status: "forbidden" });
         }
+
         const newAccessToken = jwt.sign(
-            {Id: user.id},
+            { Id: user.id, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: "15m" }
         );
@@ -191,16 +238,15 @@ async function refreshToken(req, res) {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 15 * 60 * 1000, // 15 minuti   
-            path: '/',    
+            maxAge: 15 * 60 * 1000,
+            path: '/',
         });
 
         return res.status(200).json({ success: true, data: { token: newAccessToken }, code: 200, status: "ok" });
 
     } catch (err) {
         return res.status(403).json({ error: "Refresh token non valido", code: 403, status: "forbidden" });
-    }       
-
+    }
 }
 
 async function registerWithGoogle(req, res) {
@@ -222,6 +268,7 @@ async function registerWithGoogle(req, res) {
     if (isNaN(dateOfBirthObj.getTime())) {
         return res.status(400).json({ error: "Data di nascita non valida", code: 400, status: "bad request" });
     }
+
     const currentDate = new Date();
     if (dateOfBirthObj > currentDate) {
         return res.status(400).json({ error: "Data di nascita non valida", code: 400, status: "bad request" });
@@ -235,59 +282,50 @@ async function registerWithGoogle(req, res) {
 
         const payload = ticket.getPayload();
         const email = payload?.email;
+        const googleSub = payload?.sub;
 
-        if (!email || !validatoreEmail.isEmail(email)) {
-            return res.status(400).json({ error: "Email Google non disponibile o non valida", code: 400, status: "bad request" });
+        if (!googleSub) {
+            throw new Error("Google sub mancante");
+        }
+
+        if (!email || !payload.email_verified || !validatoreEmail.isEmail(email)) {
+            return res.status(400).json({
+                error: "Email Google non valida o non verificata",
+                code: 400,
+                status: "bad request"
+            });
         }
 
         if (!await freeUsername(username)) {
             return res.status(409).json({ error: "L'username " + username + " non è disponibile", code: 409, status: "conflict" });
         }
 
-        const userEsistente = await findByEmail(email);
-        if (userEsistente) {
-            return res.status(409).json({ error: "Esiste già un account associato a questa email. Usa il login con Google.", code: 409, status: "conflict" });
+        // 🔥 Verifica per providerId invece che email
+        const userEsistenteGoogle = await findByProviderId(googleSub);
+        if (userEsistenteGoogle) {
+            return res.status(409).json({ error: "Esiste già un account Google con questo profilo.", code: 409, status: "conflict" });
         }
 
-        const randomPassword = crypto.randomBytes(32).toString('hex');
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(randomPassword, salt);
+        // Verifica anche per email (caso utente LOCAL con stessa email)
+        const userEsistenteEmail = await findByEmail(email);
+        if (userEsistenteEmail) {
+            return res.status(409).json({ error: "Esiste già un account associato a questa email.", code: 409, status: "conflict" });
+        }
 
-        await createUser(email, passwordHash, username, dateOfBirthObj);
-
-        const nuovoUtente = await findByEmail(email);
-
-        const accessToken = jwt.sign(
-            {
-                Id: nuovoUtente.id,
-                email: nuovoUtente.email
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: "15m" }
-        );
-        const refreshToken = jwt.sign(
-            { Id: nuovoUtente.id },
-            process.env.REFRESH_TOKEN_SECRET,
-            { expiresIn: "7d" }
+        await createUser(
+            email,
+            null,
+            username,
+            dateOfBirthObj,
+            "GOOGLE",
+            googleSub
         );
 
-        await updateUserRefreshToken(nuovoUtente.id, refreshToken);
+        // 🔥 Recupera per providerId
+        const nuovoUtente = await findByProviderId(googleSub);
 
-        res.cookie('token', accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 15 * 60 * 1000,
-            path: '/',
-        });
-
-        res.cookie('refreshToken', refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            path: '/api/auth/refresh-token',
-        });
+        // 🔐 Usa la funzione centralizzata
+        await generateAndSetTokens(nuovoUtente, res);
 
         return res.status(201).json({
             success: true,
@@ -306,11 +344,11 @@ async function registerWithGoogle(req, res) {
             stack: err.stack,
             credential: credential?.substring(0, 20) + '...'
         });
-        return res.status(401).json({ 
-            error: "Token Google non valido", 
+        return res.status(401).json({
+            error: "Token Google non valido",
             detail: err.message,
-            code: 401, 
-            status: "unauthorized" 
+            code: 401,
+            status: "unauthorized"
         });
     }
 }
@@ -330,48 +368,42 @@ async function loginWithGoogle(req, res) {
 
         const payload = ticket.getPayload();
         const email = payload?.email;
+        const googleSub = payload?.sub;
 
-        if (!email) {
-            return res.status(400).json({ error: "Email Google non disponibile", code: 400, status: "bad request" });
+        if (!googleSub) {
+            throw new Error("Google sub mancante");
         }
 
-        const userEsistente = await findByEmail(email);
+        if (!email || !payload.email_verified) {
+            return res.status(401).json({
+                error: "Email Google non verificata",
+                code: 401,
+                status: "unauthorized"
+            });
+        }
+
+        // 🔥 Cerca per providerId invece che email
+        const userEsistente = await findByProviderId(googleSub);
 
         if (!userEsistente) {
-            return res.status(404).json({ error: "Nessun account associato a questa email. Registrati prima.", code: 404, status: "not found" });
+            return res.status(404).json({
+                error: "Nessun account Google trovato. Registrati prima.",
+                code: 404,
+                status: "not found"
+            });
         }
 
-        const accessToken = jwt.sign(
-            {
-                Id: userEsistente.id,
-                email: userEsistente.email
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: "15m" }
-        );
-        const refreshToken = jwt.sign(
-            { Id: userEsistente.id },
-            process.env.REFRESH_TOKEN_SECRET,
-            { expiresIn: "7d" }
-        );
+        // Verifica provider per sicurezza (dovrebbe essere sempre GOOGLE se trovato per providerId)
+        if (userEsistente.provider !== 'GOOGLE') {
+            return res.status(401).json({
+                error: "Errore di autenticazione",
+                code: 401,
+                status: "unauthorized"
+            });
+        }
 
-        await updateUserRefreshToken(userEsistente.id, refreshToken);
-
-        res.cookie('token', accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 15 * 60 * 1000,
-            path: '/',
-        });
-
-        res.cookie('refreshToken', refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            path: '/api/auth/refresh-token',
-        });
+        // 🔐 Usa la funzione centralizzata
+        await generateAndSetTokens(userEsistente, res);
 
         return res.status(200).json({
             success: true,
@@ -385,25 +417,20 @@ async function loginWithGoogle(req, res) {
 
     } catch (err) {
         console.error('Errore login Google:', err);
-        console.error('Dettagli errore:', {
-            message: err.message,
-            stack: err.stack,
-            credential: credential?.substring(0, 20) + '...'
-        });
-        return res.status(401).json({ 
-            error: "Token Google non valido", 
+        return res.status(401).json({
+            error: "Token Google non valido",
             detail: err.message,
-            code: 401, 
-            status: "unauthorized" 
+            code: 401,
+            status: "unauthorized"
         });
     }
 }
 
 module.exports = {
-  register,
-  login,
-  logout,
-  refreshToken,
-  registerWithGoogle,
-  loginWithGoogle
+    register,
+    login,
+    logout,
+    refreshToken,
+    registerWithGoogle,
+    loginWithGoogle
 };

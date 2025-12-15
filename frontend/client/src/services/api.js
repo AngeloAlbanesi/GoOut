@@ -30,6 +30,12 @@ apiClient.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        // If the failing request was to an auth route (login/register/refresh),
+        // don't try to refresh the token — let the caller handle the auth error.
+        if (originalRequest && originalRequest.url && originalRequest.url.includes('auth')) {
+            return Promise.reject(error);
+        }
+
         // Se l'errore è 401 e non abbiamo già provato a refreshare
         if (error.response?.status === 401 && !originalRequest._retry) {
             if (isRefreshing) {
