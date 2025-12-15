@@ -21,8 +21,12 @@ export default function EventCard({ event, onParticipationChange }) {
   useEffect(() => {
     const handler = (e) => {
       try {
-        const { eventId, participating } = e.detail || {};
+        const { eventId, participating, origin } = e.detail || {};
         if (String(eventId) !== String(event.id)) return;
+        
+        // Ignore events from this card (or other cards) to prevent double counting if we already updated locally
+        // or if the parent updates us via props
+        if (origin === 'card') return;
 
         setIsParticipating(Boolean(participating));
         const delta = participating ? 1 : -1;
@@ -50,12 +54,6 @@ export default function EventCard({ event, onParticipationChange }) {
       setParticipantsCount(prev => prev + 1);
       setIsParticipating(true);
       
-      // Call the callback if provided (for HomePage)
-      if (typeof onParticipationChange === 'function') {
-        console.log('[EventCard] calling onParticipationChange');
-        onParticipationChange(event.id, true, { origin: 'card', user });
-      }
-      
       // Always emit global event so other components can update
       try {
         const detail = { eventId: event.id, participating: true, user: user ?? null, origin: 'card' };
@@ -81,12 +79,6 @@ export default function EventCard({ event, onParticipationChange }) {
       console.log('[EventCard] API cancel OK');
       setParticipantsCount(prev => Math.max(0, prev - 1));
       setIsParticipating(false);
-      
-      // Call the callback if provided (for HomePage)
-      if (typeof onParticipationChange === 'function') {
-        console.log('[EventCard] calling onParticipationChange');
-        onParticipationChange(event.id, false, { origin: 'card', user });
-      }
       
       // Always emit global event so other components can update
       try {
