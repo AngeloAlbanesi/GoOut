@@ -3,7 +3,15 @@ const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
-const { createUser, findByEmail, findById, updateUserRefreshToken, freeUsername, findByUsername, findByProviderId } = require('../models/userModel.js');
+const { createUser,
+        findByEmail, 
+        findById, 
+        updateUserRefreshToken, 
+        freeUsername, 
+        findByUsername, 
+        findByProviderId,
+        updateUserPassword } = require('../models/userModel.js');
+        
 const { path } = require('express/lib/application.js');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -51,8 +59,14 @@ async function generateAndSetTokens(user, res) {
     });
     return { accessToken, refreshToken };
 }
-
-
+async function addSecretToPassword(password) {
+    const secret = process.env.PASSWORD_SECRET;
+    const passwordWithSecret = crypto
+    .createHash('sha256')
+    .update(password + secret)
+    .digest('hex'); // 64 char, lunghezza standard ok per bycript
+    return passwordWithSecret;
+}
 
 async function register(req, res) {
     const { email, password, username, dateOfBirth } = req.body;
@@ -107,8 +121,6 @@ async function register(req, res) {
             status: "bad request" });
     }
 
-
-    
     // Verifica email esistente
     const userEsistente = await findByEmail(email);
     if (userEsistente) {
@@ -119,8 +131,9 @@ async function register(req, res) {
     }
 
     try {
+        const passwordWithSecret = await addSecretToPassword(password);
         const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
+        const passwordHash = await bcrypt.hash(passwordWithSecret, salt);
         await createUser(
             email,
             passwordHash,
@@ -173,7 +186,8 @@ async function login(req, res) {
             status: "unauthorized"
         });
     }
-    const passwordMatch = await bcrypt.compare(password, userEsistente.passwordHash);
+    const passwordWithSecret = await addSecretToPassword(password);
+    const passwordMatch = await bcrypt.compare(passwordWithSecret, userEsistente.passwordHash);
     if (!passwordMatch) {
         return res.status(401).json({
             error: "Credenziali errate",
@@ -453,6 +467,46 @@ async function loginWithGoogle(req, res) {
         });
     }
 }
+// PATCH /api/users/me/password - Cambia password
+async function changePassword(req, res) {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Password attuale e nuova password sono richieste', code: 400 });
+        }
+
+        const user = await findById(req.id);
+        if (!user) {
+            return res.status(404).json({ error: 'Utente non trovato', code: 404 });
+        }
+
+        if (!user.provider || user.provider !== 'LOCAL' || !user.passwordHash) {
+            return res.status(403).json({ error: 'Password change not allowed for non-local accounts', code: 403 });
+        }
+        const currentPasswordWithSecret = await addSecretToPassword(currentPassword);
+        // Verifica password attuale
+        const isMatch = await bcrypt.compare(currentPasswordWithSecret, user.passwordHash);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Password attuale non corretta', code: 401 });
+        }
+        // Valida nuova password
+        const pwErrors = validatePasswordServer(newPassword);
+        if (pwErrors.length) {
+            return res.status(400).json({ error: 'Password non conforme', detail: pwErrors.join(' | '), code: 400 });
+        }
+        // Hash e salva nuova password
+        const newPasswordWithSecret = await addSecretToPassword(newPassword);
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(newPasswordWithSecret, salt);
+        await updateUserPassword(req.id, passwordHash);
+
+        return res.status(200).json({ message: 'Password aggiornata con successo' });
+    } catch (err) {
+        console.error('Errore nel cambio password:', err);
+        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
+    }
+}
 
 module.exports = {
     register,
@@ -460,5 +514,6 @@ module.exports = {
     logout,
     refreshToken,
     registerWithGoogle,
-    loginWithGoogle
+    loginWithGoogle,
+    changePassword
 };

@@ -9,7 +9,6 @@ const {
     updateProfile,
     uploadAvatar,
     removeAvatar,
-    changePassword,
     getPublicProfile,
     followUserController,
     unfollowUserController
@@ -29,9 +28,6 @@ router.post('/me/avatar', isAuthenticated, uploadAvatarMiddleware.single('avatar
 
 // DELETE /api/users/me/avatar - Rimuovi avatar
 router.delete('/me/avatar', isAuthenticated, removeAvatar);
-
-// PATCH /api/users/me/password - Cambia password
-router.patch('/me/password', isAuthenticated, changePassword);
 
 // GET /api/users/:id - Profilo pubblico
 router.get('/:id', isAuthenticated, getPublicProfile);

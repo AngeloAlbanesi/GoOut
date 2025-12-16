@@ -30,9 +30,8 @@ apiClient.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // If the failing request was to an auth route (login/register/refresh),
-        // don't try to refresh the token — let the caller handle the auth error.
-        if (originalRequest && originalRequest.url && originalRequest.url.includes('auth')) {
+        const noRefreshPaths = ['auth/login', 'auth/register', 'auth/refresh-token', 'auth/google', 'auth/google/register'];
+        if (originalRequest && originalRequest.url && noRefreshPaths.some(p => originalRequest.url.includes(p))) {
             return Promise.reject(error);
         }
 
@@ -107,7 +106,7 @@ export const userService = {
         });
     },
     removeAvatar: () => { return apiClient.delete('users/me/avatar'); },
-    changePassword: (data) => { return apiClient.patch('users/me/password', data); },
+    changePassword: (data) => { return apiClient.patch('auth/me/password', data); },
     getPublicUser: (id) => apiClient.get(`users/${id}`),
     followUser: (id) => apiClient.post(`users/${id}/follow`),
     unfollowUser: (id) => apiClient.delete(`users/${id}/follow`),

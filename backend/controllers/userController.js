@@ -1,5 +1,4 @@
 //controllers/userController.js
-const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 const {
@@ -7,24 +6,14 @@ const {
     updateUser,
     searchUsers,
     updateUserProfilePicture,
-    updateUserPassword,
     isFollowing,
     followUser,
     unfollowUser,
     findPublicProfileById
 } = require('../models/userModel.js');
 
-// Server-side password validation helper
-function validatePasswordServer(pw) {
-    const errors = [];
-    const minLength = 10;
-    if (!pw || pw.length < minLength) errors.push(`La password deve essere di almeno ${minLength} caratteri.`);
-    if (!/[A-Z]/.test(pw)) errors.push('Deve contenere almeno una lettera maiuscola.');
-    if (!/[a-z]/.test(pw)) errors.push('Deve contenere almeno una lettera minuscola.');
-    if (!/[0-9]/.test(pw)) errors.push('Deve contenere almeno una cifra.');
-    if (!/[^A-Za-z0-9]/.test(pw)) errors.push('Deve contenere almeno un carattere speciale.');
-    return errors;
-}
+
+
 
 // GET /api/users/mieiDati - Ottiene i dati dell'utente autenticato
 async function getMieiDati(req, res) {
@@ -112,47 +101,7 @@ async function removeAvatar(req, res) {
     }
 }
 
-// PATCH /api/users/me/password - Cambia password
-async function changePassword(req, res) {
-    try {
-        const { currentPassword, newPassword } = req.body;
 
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({ error: 'Password attuale e nuova password sono richieste', code: 400 });
-        }
-
-        const user = await findById(req.id);
-        if (!user) {
-            return res.status(404).json({ error: 'Utente non trovato', code: 404 });
-        }
-
-        if (!user.provider || user.provider !== 'LOCAL' || !user.passwordHash) {
-            return res.status(403).json({ error: 'Password change not allowed for non-local accounts', code: 403 });
-        }
-
-        // Verifica password attuale
-        const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
-        if (!isMatch) {
-            return res.status(401).json({ error: 'Password attuale non corretta', code: 401 });
-        }
-
-        // Valida nuova password
-        const pwErrors = validatePasswordServer(newPassword);
-        if (pwErrors.length) {
-            return res.status(400).json({ error: 'Password non conforme', detail: pwErrors.join(' | '), code: 400 });
-        }
-
-        // Hash e salva nuova password
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(newPassword, salt);
-        await updateUserPassword(req.id, passwordHash);
-
-        return res.status(200).json({ message: 'Password aggiornata con successo' });
-    } catch (err) {
-        console.error('Errore nel cambio password:', err);
-        return res.status(500).json({ error: 'Errore interno del server', code: 500 });
-    }
-}
 
 // GET /api/users/:id - Profilo pubblico
 async function getPublicProfile(req, res) {
@@ -245,7 +194,6 @@ module.exports = {
     updateProfile,
     uploadAvatar,
     removeAvatar,
-    changePassword,
     getPublicProfile,
     followUserController,
     unfollowUserController
