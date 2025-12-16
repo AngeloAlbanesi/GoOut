@@ -29,15 +29,12 @@ async function generateAndSetTokens(user, res) {
         process.env.JWT_SECRET,
         { expiresIn: "15m" }
     );
-
     const refreshToken = jwt.sign(
         { Id: user.id },
         process.env.REFRESH_TOKEN_SECRET,
         { expiresIn: "7d" }
     );
-
     await updateUserRefreshToken(user.id, refreshToken);
-
     res.cookie('token', accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -45,7 +42,6 @@ async function generateAndSetTokens(user, res) {
         maxAge: 15 * 60 * 1000,
         path: '/',
     });
-
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -53,7 +49,6 @@ async function generateAndSetTokens(user, res) {
         maxAge: 7 * 24 * 60 * 60 * 1000,
         path: '/api/auth/refresh-token',
     });
-
     return { accessToken, refreshToken };
 }
 
@@ -61,52 +56,71 @@ async function generateAndSetTokens(user, res) {
 
 async function register(req, res) {
     const { email, password, username, dateOfBirth } = req.body;
-
     // Validazione email
     if (!validatoreEmail.isEmail(email)) {
-        return res.status(400).json({ error: "Email non valida", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Email non valida", 
+            code: 400, 
+            status: "bad request" });
     }
-
     // Validazione password
     if (!password) {
-        return res.status(400).json({ error: "Password mancante", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Password mancante", 
+            code: 400, 
+            status: "bad request" });
     }
-
     const pwErrors = validatePasswordServer(password);
     if (pwErrors.length) {
-        return res.status(400).json({ error: 'Password non conforme', detail: pwErrors.join(' | '), code: 400, status: 'bad request' });
+        return res.status(400).json({ 
+            error: 'Password non conforme', 
+            detail: pwErrors.join(' | '), 
+            code: 400, 
+            status: 'bad request' });
     }
-
     // Validazione username
     if (!await freeUsername(username)) {
-        return res.status(409).json({ error: "L'username " + username + " non è disponibile", code: 409, status: "conflict" });
+        return res.status(409).json({ 
+            error: "L'username " + username + " non è disponibile", 
+            code: 409, 
+            status: "conflict" });
     }
-
     // Validazione data di nascita
     if (!dateOfBirth) {
-        return res.status(400).json({ error: "Data di nascita mancante", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Data di nascita mancante", 
+            code: 400, 
+            status: "bad request" });
     }
-
     const dateOfBirthObj = new Date(dateOfBirth);
     if (isNaN(dateOfBirthObj.getTime())) {
-        return res.status(400).json({ error: "Data di nascita non valida", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Data di nascita non valida", 
+            code: 400, 
+            status: "bad request" });
     }
-
     const currentDate = new Date();
     if (dateOfBirthObj > currentDate) {
-        return res.status(400).json({ error: "Data di nascita non valida", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Data di nascita non valida", 
+            code: 400, 
+            status: "bad request" });
     }
 
+
+    
     // Verifica email esistente
     const userEsistente = await findByEmail(email);
     if (userEsistente) {
-        return res.status(409).json({ error: "L'email " + email + " è collegata ad un account esistente", code: 409, status: "conflict" });
+        return res.status(409).json({ 
+            error: "L'email " + email + " è collegata ad un account esistente", 
+            code: 409, 
+            status: "conflict" });
     }
 
     try {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
-
         await createUser(
             email,
             passwordHash,
@@ -115,11 +129,9 @@ async function register(req, res) {
             'LOCAL',
             null
         );
-
-        // 🔥 Recupera l'utente appena creato e fa login automatico
+        // Recupera l'utente appena creato e fa login automatico
         const nuovoUtente = await findByEmail(email);
         await generateAndSetTokens(nuovoUtente, res);
-
         return res.status(201).json({
             success: true,
             data: {
@@ -129,16 +141,13 @@ async function register(req, res) {
             code: 201,
             status: "created"
         });
-
     } catch (err) {
         const detail = err?.message || (err?.response && JSON.stringify(err.response.data)) || String(err);
         return res.status(500).json({ errore: "Errore Interno creazione utente", detail, code: 500, status: "internal server error" });
     }
 }
-
 async function login(req, res) {
     const { user, password } = req.body;
-
     if (!password) {
         return res.status(400).json({
             error: "Password mancante",
@@ -146,11 +155,9 @@ async function login(req, res) {
             status: "bad request"
         });
     }
-
     const userEsistente = validatoreEmail.isEmail(user)
         ? await findByEmail(user)
         : await findByUsername(user);
-
     if (!userEsistente) {
         return res.status(401).json({
             error: "Credenziali errate",
@@ -158,7 +165,6 @@ async function login(req, res) {
             status: "unauthorized"
         });
     }
-
     // Blocco utenti Google
     if (userEsistente.provider !== 'LOCAL' || !userEsistente.passwordHash) {
         return res.status(401).json({
@@ -167,7 +173,6 @@ async function login(req, res) {
             status: "unauthorized"
         });
     }
-
     const passwordMatch = await bcrypt.compare(password, userEsistente.passwordHash);
     if (!passwordMatch) {
         return res.status(401).json({
@@ -176,10 +181,8 @@ async function login(req, res) {
             status: "unauthorized"
         });
     }
-
     // Usa la funzione centralizzata
     await generateAndSetTokens(userEsistente, res);
-
     return res.status(200).json({
         success: true,
         data: {
@@ -201,39 +204,46 @@ async function logout(req, res) {
             }
         }
     } catch (err) {
-        // Ignora gli errori relativi al token
     }
-
     try {
         res.clearCookie('token', { path: '/' });
         res.clearCookie('refreshToken', { path: '/api/auth/refresh-token' });
-        return res.status(200).json({ success: true, message: "Logout effettuato con successo", code: 200, status: "ok" });
+        return res.status(200).json({ 
+            success: true, 
+            message: "Logout effettuato con successo", 
+            code: 200, 
+            status: "ok" });
     } catch (err) {
-        return res.status(500).json({ success: false, errore: "Errore interno durante il logout", code: 500, status: "internal server error" });
+        return res.status(500).json({ 
+            success: false, 
+            errore: "Errore interno durante il logout", 
+            code: 500, 
+            status: "internal server error" });
     }
 }
 
 async function refreshToken(req, res) {
     const refreshToken = req.cookies.refreshToken;
-
     if (!refreshToken) {
-        return res.status(401).json({ error: "Refresh token mancante", code: 401, status: "unauthorized" });
+        return res.status(401).json({ 
+            error: "Refresh token mancante", 
+            code: 401, 
+            status: "unauthorized" });
     }
-
     try {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
         const user = await findById(decoded.Id);
-
         if (!user || user.refreshToken !== refreshToken) {
-            return res.status(403).json({ error: "Refresh token non valido", code: 403, status: "forbidden" });
+            return res.status(403).json({ 
+                error: "Refresh token non valido", 
+                code: 403, 
+                status: "forbidden" });
         }
-
         const newAccessToken = jwt.sign(
             { Id: user.id, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: "15m" }
         );
-
         res.cookie('token', newAccessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -241,11 +251,17 @@ async function refreshToken(req, res) {
             maxAge: 15 * 60 * 1000,
             path: '/',
         });
-
-        return res.status(200).json({ success: true, data: { token: newAccessToken }, code: 200, status: "ok" });
+        return res.status(200).json({ 
+            success: true,
+            data: { token: newAccessToken }, 
+            code: 200, 
+            status: "ok" });
 
     } catch (err) {
-        return res.status(403).json({ error: "Refresh token non valido", code: 403, status: "forbidden" });
+        return res.status(403).json({ 
+            error: "Refresh token non valido", 
+            code: 403,
+            status: "forbidden" });
     }
 }
 
@@ -253,25 +269,40 @@ async function registerWithGoogle(req, res) {
     const { credential, username, dateOfBirth } = req.body;
 
     if (!credential) {
-        return res.status(400).json({ error: "Token Google mancante", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Token Google mancante", 
+            code: 400, 
+            status: "bad request" });
     }
 
     if (!username) {
-        return res.status(400).json({ error: "Username mancante", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Username mancante", 
+            code: 400, 
+            status: "bad request" });
     }
 
     if (!dateOfBirth) {
-        return res.status(400).json({ error: "Data di nascita mancante", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Data di nascita mancante", 
+            code: 400, 
+            status: "bad request" });
     }
 
     const dateOfBirthObj = new Date(dateOfBirth);
     if (isNaN(dateOfBirthObj.getTime())) {
-        return res.status(400).json({ error: "Data di nascita non valida", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Data di nascita non valida", 
+            code: 400, 
+            status: "bad request" });
     }
 
     const currentDate = new Date();
     if (dateOfBirthObj > currentDate) {
-        return res.status(400).json({ error: "Data di nascita non valida", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Data di nascita non valida", 
+            code: 400, 
+            status: "bad request" });
     }
 
     try {
@@ -295,23 +326,29 @@ async function registerWithGoogle(req, res) {
                 status: "bad request"
             });
         }
-
         if (!await freeUsername(username)) {
-            return res.status(409).json({ error: "L'username " + username + " non è disponibile", code: 409, status: "conflict" });
+            return res.status(409).json({ 
+                error: "L'username " + username + " non è disponibile", 
+                code: 409, 
+                status: "conflict" });
         }
-
-        // 🔥 Verifica per providerId invece che email
+        // Verifica per providerId (Google Sub)
         const userEsistenteGoogle = await findByProviderId(googleSub);
         if (userEsistenteGoogle) {
-            return res.status(409).json({ error: "Esiste già un account Google con questo profilo.", code: 409, status: "conflict" });
+            return res.status(409).json({ 
+                error: "Esiste già un account Google con questo profilo.", 
+                code: 409, 
+                status: "conflict" });
         }
 
         // Verifica anche per email (caso utente LOCAL con stessa email)
         const userEsistenteEmail = await findByEmail(email);
         if (userEsistenteEmail) {
-            return res.status(409).json({ error: "Esiste già un account associato a questa email.", code: 409, status: "conflict" });
+            return res.status(409).json({ 
+                error: "Esiste già un account associato a questa email.", 
+                code: 409, 
+                status: "conflict" });
         }
-
         await createUser(
             email,
             null,
@@ -321,12 +358,11 @@ async function registerWithGoogle(req, res) {
             googleSub
         );
 
-        // 🔥 Recupera per providerId
+        // Recupera per providerId
         const nuovoUtente = await findByProviderId(googleSub);
 
-        // 🔐 Usa la funzione centralizzata
+        // Usa la funzione centralizzata
         await generateAndSetTokens(nuovoUtente, res);
-
         return res.status(201).json({
             success: true,
             data: {
@@ -355,25 +391,23 @@ async function registerWithGoogle(req, res) {
 
 async function loginWithGoogle(req, res) {
     const { credential } = req.body;
-
     if (!credential) {
-        return res.status(400).json({ error: "Token Google mancante", code: 400, status: "bad request" });
+        return res.status(400).json({ 
+            error: "Token Google mancante", 
+            code: 400, 
+            status: "bad request" });
     }
-
     try {
         const ticket = await googleClient.verifyIdToken({
             idToken: credential,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
-
         const payload = ticket.getPayload();
         const email = payload?.email;
         const googleSub = payload?.sub;
-
         if (!googleSub) {
             throw new Error("Google sub mancante");
         }
-
         if (!email || !payload.email_verified) {
             return res.status(401).json({
                 error: "Email Google non verificata",
@@ -381,10 +415,8 @@ async function loginWithGoogle(req, res) {
                 status: "unauthorized"
             });
         }
-
-        // 🔥 Cerca per providerId invece che email
+        // Cerca per providerId (Google Sub)
         const userEsistente = await findByProviderId(googleSub);
-
         if (!userEsistente) {
             return res.status(404).json({
                 error: "Nessun account Google trovato. Registrati prima.",
@@ -392,7 +424,6 @@ async function loginWithGoogle(req, res) {
                 status: "not found"
             });
         }
-
         // Verifica provider per sicurezza (dovrebbe essere sempre GOOGLE se trovato per providerId)
         if (userEsistente.provider !== 'GOOGLE') {
             return res.status(401).json({
@@ -401,10 +432,8 @@ async function loginWithGoogle(req, res) {
                 status: "unauthorized"
             });
         }
-
-        // 🔐 Usa la funzione centralizzata
+        // Usa la funzione centralizzata
         await generateAndSetTokens(userEsistente, res);
-
         return res.status(200).json({
             success: true,
             data: {
@@ -414,7 +443,6 @@ async function loginWithGoogle(req, res) {
             code: 200,
             status: "ok",
         });
-
     } catch (err) {
         console.error('Errore login Google:', err);
         return res.status(401).json({
