@@ -11,7 +11,7 @@ export default function EventPage() {
   const [event, setEvent] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [loadingParticipants] = useState(false);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -200,6 +200,7 @@ export default function EventPage() {
     );
   };
 
+ 
   if (loading) return (
       <div className="flex items-center justify-center min-h-screen bg-white">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#09090b]"></div>
@@ -280,21 +281,21 @@ export default function EventPage() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {participants.map(p => (
-                                    <Link 
-                                        key={p.id} 
-                                        to={`/user/${p.id}`} 
-                                        className="flex items-center space-x-4 p-4 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group"
-                                    >
-                                        <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border border-gray-100 shadow-inner">
-                                            {renderAvatar(p, 48)}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="font-bold text-[#09090b] group-hover:underline text-lg truncate">{p.username}</p>
-                                            {p.email && <p className="text-xs text-gray-400 truncate">{p.email}</p>}
-                                        </div>
-                                    </Link>
-                                ))}
+                              {participants.map(p => (
+                                <Link
+                                  key={p.id}
+                                  to={user && String(user.id) === String(p.id) ? '/profilo' : `/user/${p.id}`}
+                                  className="flex items-center space-x-4 p-4 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group"
+                                >
+                                  <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border border-gray-100 shadow-inner">
+                                    {renderAvatar(p, 48)}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-[#09090b] group-hover:underline text-lg truncate">{p.username}</p>
+                                    {p.email && <p className="text-xs text-gray-400 truncate">{p.email}</p>}
+                                  </div>
+                                </Link>
+                              ))}
                             </div>
                         )}
                     </section>
