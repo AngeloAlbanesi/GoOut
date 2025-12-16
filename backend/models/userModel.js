@@ -4,17 +4,25 @@ const prisma = new PrismaClient();
 
 
 //creazione di un nuovo utente sul DB
-async function createUser(email, passwordHash, username, dateOfBirth) {
+async function createUser(email, passwordHash, username, dateOfBirth,provider,providerId) {
     const user = {
         email: email,
         passwordHash: passwordHash,
         username: username,
-        dateOfBirth: dateOfBirth
+        dateOfBirth: dateOfBirth,
+        provider: provider,
+        providerId: providerId
     };
     await prisma.user.create({ data: user });
     return;
 }
-
+async function findByProviderId(providerId) {
+    return await prisma.user.findFirst({
+        where: {
+            providerId: providerId,
+        },
+    });
+}
 //restituisce un utente data un email
 async function findByEmail(email) {
     return await prisma.user.findUnique({
@@ -278,5 +286,6 @@ module.exports = {
     isFollowing,
     followUser,
     unfollowUser,
-    findPublicProfileById
+    findPublicProfileById,
+    findByProviderId
 };

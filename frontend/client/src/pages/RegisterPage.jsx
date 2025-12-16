@@ -2,8 +2,9 @@
 //pages/RegisterPage.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../services/api';
+import { authService, userService } from '../services/api';
 import { GoogleLogin } from '@react-oauth/google';
+import { useAuth } from '../context/AuthContext';
 
 function RegisterPage() {
     const [username, setUsername] = useState('');
@@ -16,6 +17,7 @@ function RegisterPage() {
     const [loading, setLoading] = useState(false);
 
     const navigate = useNavigate();
+    const { setUser } = useAuth();
 
     const handleGoogleSuccess = (credentialResponse) => {
         console.log('Google credential response (register):', credentialResponse);
@@ -84,8 +86,21 @@ function RegisterPage() {
             const userData = { username, email, password, dateOfBirth };
             const response = await authService.register(userData);
             console.log('Risposta dal server:', response.data);
-            setSuccess('Registrazione avvenuta con successo! Ora puoi effettuare il login.');
-            navigate('/login');
+
+            // server sets httpOnly cookie; fetch full profile and update client auth state
+            try {
+                const profileRes = await userService.mieiDati();
+                const profile = profileRes?.data ?? null;
+                if (profile && typeof setUser === 'function') setUser(profile);
+            } catch (e) {
+                // fallback: use returned minimal data if profile fetch fails
+                const returned = response?.data?.data ?? null;
+                if (returned && typeof setUser === 'function') setUser(returned);
+                console.warn('Could not fetch full profile after register, used minimal returned data:', e);
+            }
+
+            setSuccess('Registrazione avvenuta con successo! Reindirizzo...');
+            navigate('/');
         } catch (err) {
             console.error('errore durante la registrazione: ', err);
             setError(parseApiError(err));
