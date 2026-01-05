@@ -126,6 +126,14 @@ function ProfilePage() {
                                 <span className="text-3xl font-bold text-[#09090b]">{participations.length}</span>
                                 <span className="text-sm text-gray-500 font-medium">Partecipazioni</span>
                             </div>
+                            <div className="flex flex-col">
+                                <span className="text-3xl font-bold text-[#09090b]">{profileData?.followersCount || 0}</span>
+                                <span className="text-sm text-gray-500 font-medium">Follower</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-3xl font-bold text-[#09090b]">{profileData?.followingCount || 0}</span>
+                                <span className="text-sm text-gray-500 font-medium">Seguiti</span>
+                            </div>
                         </div>
                     </div>
                     <div className="mt-4 md:mt-0 shrink-0">

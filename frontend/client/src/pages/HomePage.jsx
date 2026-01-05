@@ -63,34 +63,7 @@ export default function HomePage() {
     return () => { mounted = false; };
   }, [isAuthenticated]);
 
-  // Handler invoked by EventCard when participation changes (local optimistic update)
-  // This callback is called AFTER EventCard emits the global event,
-  // so we just need to update HomePage's local state
-  const handleParticipationChange = (eventId, participating, options = {}) => {
-    const idStr = String(eventId);
 
-    setEvents(prev => prev.map(ev => {
-      if (String(ev.id) !== idStr) return ev;
-      const delta = participating ? 1 : -1;
-      return { ...ev, isParticipating: participating, participantsCount: Math.max(0, (ev.participantsCount ?? 0) + delta) };
-    }));
-
-    setFriendsEvents(prev => prev.map(ev => {
-      if (String(ev.id) !== idStr) return ev;
-      const delta = participating ? 1 : -1;
-      return { ...ev, isParticipating: participating, participantsCount: Math.max(0, (ev.participantsCount ?? 0) + delta) };
-    }));
-
-    setMyParticipations(prev => {
-      const next = new Set(prev);
-      if (participating) next.add(idStr);
-      else next.delete(idStr);
-      return next;
-    });
-
-    // Note: EventCard already emits the global 'participationChanged' event,
-    // so we don't need to re-emit it here
-  };
 
   const loadPage = useCallback(async (p) => {
     setLoading(true);
@@ -327,7 +300,7 @@ export default function HomePage() {
         <section>
           {events.length === 0 && !loading && <p style={{ textAlign: 'center' }}>Nessun evento trovato.</p>}
 
-          {events.map(ev => <EventCard key={ev.id} event={ev} onParticipationChange={handleParticipationChange} />)}
+          {events.map(ev => <EventCard key={ev.id} event={ev} />)}
 
           <div ref={sentinelRef} style={{ height: 1 }} />
 
@@ -339,7 +312,7 @@ export default function HomePage() {
         <section>
           {friendsEvents.length === 0 && !friendsLoading && <p style={{ textAlign: 'center' }}>Nessun evento degli amici.</p>}
 
-          {friendsEvents.map(ev => <EventCard key={ev.id} event={ev} onParticipationChange={handleParticipationChange} />)}
+          {friendsEvents.map(ev => <EventCard key={ev.id} event={ev} />)}
 
           <div ref={friendsSentinelRef} style={{ height: 1 }} />
 

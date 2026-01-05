@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { eventService } from '../services/api';
 
@@ -11,7 +11,7 @@ export default function EventPage() {
   const [event, setEvent] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [loadingParticipants] = useState(false);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -42,32 +42,24 @@ export default function EventPage() {
   useEffect(() => {
     const handler = (e) => {
       try {
-        const { eventId, participating, user: u } = e.detail || {};
+        const { eventId, participating, user: u, origin } = e.detail || {};
         
-        // Debug: log TUTTI gli eventi che arrivano
-        console.log('[EventPage] Event ricevuto:', { eventId, id, match: String(eventId) === String(id), participating });
+        if (!eventId || String(eventId) !== String(id)) return;
         
-        if (!eventId) {
-          console.log('[EventPage] eventId mancante');
-          return;
-        }
-        if (String(eventId) !== String(id)) {
-          console.log('[EventPage] Event non è per questo evento');
-          return;
-        }
+        // Ignore events originating from this page itself, as it handles its own updates via API fetch
+        if (origin === 'page') return;
 
-        console.log('[EventPage] Processing event for questo evento:', { eventId, participating });
-
-        // Aggiorna il contatore dei partecipanti e lo stato di isParticipating
         setEvent(prev => {
           if (!prev) return prev;
+          // Guard clause: If state already matches the target status, ignore to prevent double-counting
+          if (prev.isParticipating === Boolean(participating)) return prev;
+
           const currentCount = prev.participantsCount ?? 0;
           const nextCount = Math.max(0, currentCount + (participating ? 1 : -1));
-          console.log('[EventPage] Aggiornando event:', { currentCount, nextCount, participating });
           return { ...prev, participantsCount: nextCount, isParticipating: Boolean(participating) };
         });
 
-        // Aggiorna la lista dei partecipanti
+        // Update participants list if we have user info, otherwise trigger a background refresh
         if (participating) {
           if (u && u.id) {
             setParticipants(prev => {
@@ -75,49 +67,28 @@ export default function EventPage() {
               return [...prev, { id: u.id, username: u.username || null, profilePictureUrl: u.profilePictureUrl || null, email: u.email || null }];
             });
           } else {
-            // Se non abbiamo i dati dell'utente, ricarica da server
-            setLoadingParticipants(true);
-            (async () => {
-              try {
-                const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-                if (r.ok) {
-                  const d = await r.json();
-                  setParticipants(Array.isArray(d) ? d : (d.participants || []));
-                }
-              } finally {
-                setLoadingParticipants(false);
-              }
-            })();
+            // Background refresh if user details missing
+            eventService.getEventDetails(id).then(r => {
+                if (r.data) setParticipants(r.data.participants || []);
+            }).catch(console.error);
           }
         } else {
           if (u && u.id) {
             setParticipants(prev => prev.filter(p => String(p.id ?? p.userId ?? '') !== String(u.id)));
           } else {
-            // Se non abbiamo i dati dell'utente, ricarica da server
-            setLoadingParticipants(true);
-            (async () => {
-              try {
-                const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-                if (r.ok) {
-                  const d = await r.json();
-                  setParticipants(Array.isArray(d) ? d : (d.participants || []));
-                }
-              } finally {
-                setLoadingParticipants(false);
-              }
-            })();
+             // Background refresh
+             eventService.getEventDetails(id).then(r => {
+                if (r.data) setParticipants(r.data.participants || []);
+            }).catch(console.error);
           }
         }
       } catch (err) {
         console.error('Errore gestione evento participationChanged:', err);
-        setLoadingParticipants(false);
       }
     };
 
-    // FIRST: se c'è un evento memorizzato, applicalo subito (race condition: evento emesso prima che il listener si registri)
     const lastEvent = window.__lastParticipationEvent;
     if (lastEvent && String(lastEvent.eventId) === String(id)) {
-      console.log('[EventPage] Found stored event, applying it before listener register:', lastEvent);
       try {
         handler({ detail: lastEvent });
       } finally {
@@ -125,10 +96,8 @@ export default function EventPage() {
       }
     }
 
-    console.log('[EventPage] Registering listener per eventId:', id);
     window.addEventListener('participationChanged', handler);
     return () => {
-      console.log('[EventPage] Rimuovendo listener');
       window.removeEventListener('participationChanged', handler);
     };
   }, [id]);
@@ -137,11 +106,10 @@ export default function EventPage() {
 
   const isUserParticipating = () => {
     if (!user) return false;
+    const uId = String(user.id ?? user.Id ?? '');
     return participants.some(p => {
-      const pid = p.id ?? p.userId ?? null;
-      if (pid != null) return String(pid) === String(user.id);
-      if (p.username && user.username) return String(p.username) === String(user.username);
-      return false;
+      const pId = String(p.id ?? p.userId ?? '');
+      return pId === uId;
     });
   };
 
@@ -159,28 +127,13 @@ export default function EventPage() {
     setActionLoading(true);
     try {
       await eventService.participate(id);
-
-      if (user) {
-        setParticipants(prev => {
-          if (prev.some(p => {
-            const pid = p.id ?? p.userId ?? null;
-            return pid != null ? String(pid) === String(user.id) : (p.username && user.username && String(p.username) === String(user.username));
-          })) return prev;
-          return [...prev, { id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl, email: user.email }];
-        });
-      } else {
-        const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-        if (r.ok) {
-          const d = await r.json();
-          setParticipants(Array.isArray(d) ? d : (d.participants || []));
-        }
+      
+      // Fetch fresh data from server to ensure accuracy (prevents race conditions/double counting)
+      const res = await eventService.getEventDetails(id);
+      if (res.data) {
+          setEvent(res.data);
+          setParticipants(res.data.participants || []);
       }
-
-      setEvent(prev => {
-        if (!prev) return prev;
-        const currentCount = prev.participantsCount ?? (Array.isArray(prev.participants) ? prev.participants.length : participants.length);
-        return { ...prev, participantsCount: currentCount + 1, isParticipating: true };
-      });
 
       emitParticipationEvent(true);
     } catch (err) {
@@ -197,26 +150,12 @@ export default function EventPage() {
     try {
       await eventService.cancelParticipation(id);
 
-      if (user) {
-        setParticipants(prev => prev.filter(p => {
-          const pid = p.id ?? p.userId ?? null;
-          if (pid != null) return String(pid) !== String(user.id);
-          if (p.username && user.username) return String(p.username) !== String(user.username);
-          return true;
-        }));
-      } else {
-        const r = await fetch(`/api/events/${id}/participants`, { credentials: 'include' });
-        if (r.ok) {
-          const d = await r.json();
-          setParticipants(Array.isArray(d) ? d : (d.participants || []));
-        }
+      // Fetch fresh data from server to ensure accuracy
+      const res = await eventService.getEventDetails(id);
+      if (res.data) {
+          setEvent(res.data);
+          setParticipants(res.data.participants || []);
       }
-
-      setEvent(prev => {
-        if (!prev) return prev;
-        const currentCount = prev.participantsCount ?? (Array.isArray(prev.participants) ? prev.participants.length : participants.length);
-        return { ...prev, participantsCount: Math.max(0, currentCount - 1), isParticipating: false };
-      });
 
       emitParticipationEvent(false);
     } catch (err) {
@@ -227,7 +166,6 @@ export default function EventPage() {
     }
   };
 
-  // helper: render avatar image or initial (styling consistent with ProfilePage)
   const renderAvatar = (person, size = 40) => {
     const name = person?.username || person?.name || '';
     const initial = (name.trim().charAt(0) || 'U').toUpperCase();
@@ -243,7 +181,7 @@ export default function EventPage() {
     };
 
     if (imgUrl) {
-      return <img src={imgUrl} alt={person?.username || person?.name || 'utente'} style={{ ...commonStyle, objectFit: 'cover' }} />;
+      return <img src={`http://localhost:3001${imgUrl}`} alt={name} style={{ ...commonStyle, objectFit: 'cover' }} />;
     }
 
     return (
@@ -262,142 +200,187 @@ export default function EventPage() {
     );
   };
 
-  if (loading) return <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}><p>Caricamento evento...</p></main>;
-  if (error) return <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}><p style={{ color: 'red' }}>{error}</p></main>;
-  if (!event) return <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}><p>Evento non trovato.</p></main>;
+ 
+  if (loading) return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#09090b]"></div>
+      </div>
+  );
 
-  const eventDate = new Date(event.date);
+  if (error) return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+          <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900">{error}</h2>
+              <Link to="/" className="text-[#09090b] hover:underline mt-4 block">Torna alla Home</Link>
+          </div>
+      </div>
+  );
 
-  const goToUser = (userId) => {
-    if (!userId) return;
-    // Se stai cliccando sul tuo profilo, vai alla pagina profilo privata
-    if (user && String(user.id) === String(userId)) {
-      navigate('/profilo');
-    } else {
-      navigate(`/user/${userId}`);
-    }
-  };
+  if (!event) return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+          <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900">Evento non trovato.</h2>
+              <Link to="/" className="text-[#09090b] hover:underline mt-4 block">Torna alla Home</Link>
+          </div>
+      </div>
+  );
 
   return (
-    <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <h1 style={{ margin: 0 }}>{event.title}</h1>
-        <time style={{ color: '#6b7280' }}>{eventDate.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' , year: 'numeric' })}</time>
-      </header>
-
-      <div style={{ display: 'grid', gap: 10, marginTop: 16, marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <strong>Descrizione:</strong>
-          <div style={{ color: '#374151' }}>{event.description}</div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <strong>Luogo:</strong>
-          <div>{event.location || '—'}</div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <strong>Massimo partecipanti:</strong>
-          <div>{event.maxParticipants ?? '—'}</div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <strong>Organizzatore:</strong>
-          {event.creator ? (
-            (() => {
-              const creatorId = event.creator.id ?? event.creator.userId ?? null;
-              const clickable = !!creatorId;
-              return (
-                <div
-                  role={clickable ? 'button' : undefined}
-                  tabIndex={clickable ? 0 : -1}
-                  onClick={clickable ? () => goToUser(creatorId) : undefined}
-                  onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') goToUser(creatorId); } : undefined}
-                  aria-label={clickable ? `Apri profilo di ${event.creator.username || 'organizzatore'}` : undefined}
-                  style={{ display: 'flex', gap: 12, alignItems: 'center', cursor: clickable ? 'pointer' : 'default' }}
-                >
-                  {renderAvatar(event.creator, 36)}
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ color: '#09090b', fontWeight: 700, fontSize: 16 }}>
-                      {event.creator?.username ?? '—'}
-                    </span>
-                    <span style={{ color: '#6b7280', fontSize: 13 }}>
-                      {event.creator?.email || ''}
-                    </span>
-                  </div>
+    <div className="min-h-screen bg-gray-50 font-sans pb-20">
+        {/* Full Width Header */}
+        <div className="w-full bg-[#09090b] text-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+                <div className="max-w-4xl">
+                    <p className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-4">Evento</p>
+                    <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 leading-tight">{event.title}</h1>
+                    
+                    {event.creator && (
+                        <div className="flex items-center space-x-4">
+                            <Link to={`/user/${event.creator.id}`} className="group flex items-center space-x-3">
+                                <div className="border-2 border-white/20 rounded-full group-hover:border-white transition-colors">
+                                    {renderAvatar(event.creator, 48)}
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-400 uppercase tracking-wide font-semibold">Organizzato da</p>
+                                    <p className="text-white font-bold text-lg group-hover:underline">{event.creator.username}</p>
+                                </div>
+                            </Link>
+                        </div>
+                    )}
                 </div>
-              );
-            })()
-          ) : (
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              {renderAvatar({}, 36)}
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ color: '#09090b', fontWeight: 700, fontSize: 16 }}>—</span>
-                <span style={{ color: '#6b7280', fontSize: 13 }} />
-              </div>
             </div>
-          )}
         </div>
-      </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ marginLeft: 'auto' }}>
-          {event?.isParticipating ? (
-            <button onClick={handleCancelParticipation} disabled={actionLoading} style={{ padding: '6px 10px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none' }}>
-              {actionLoading ? 'Attendere...' : 'Annulla partecipazione'}
-            </button>
-          ) : (
-            <button onClick={handleParticipate} disabled={actionLoading || (event?.maxParticipants && participants.length >= event.maxParticipants)} style={{ padding: '6px 10px', borderRadius: 6, background: '#10b981', color: '#fff', border: 'none' }}>
-              {actionLoading ? 'Attendere...' : 'Partecipa'}
-            </button>
-          )}
-        </div>
-      </div>
+        {/* Content Layout */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+                
+                {/* Left Column: Main Content */}
+                <div className="lg:col-span-2 space-y-12">
+                    
+                    {/* Description */}
+                    <section className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+                        <h2 className="text-2xl font-bold text-[#09090b] mb-6">Descrizione</h2>
+                        <div className="text-gray-700 leading-relaxed text-lg whitespace-pre-wrap">
+                            {event.description}
+                        </div>
+                    </section>
 
-      <section>
-        <h2>Partecipanti ({participants.length})</h2>
-        {loadingParticipants ? (
-          <p>Caricamento partecipanti...</p>
-        ) : participants.length === 0 ? (
-          <p>Nessun partecipante registrato.</p>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {participants.map(p => {
-              const userId = p.id ?? p.userId ?? null;
-              const clickable = !!userId;
-              return (
-                <li
-                  key={userId ?? p.username ?? Math.random()}
-                  style={{
-                    display: 'flex',
-                    gap: 12,
-                    alignItems: 'center',
-                    padding: '12px 0',
-                    borderBottom: '1px solid #f3f4f6'
-                  }}
-                >
-                  <div
-                    role={clickable ? 'button' : undefined}
-                    tabIndex={clickable ? 0 : undefined}
-                    onClick={clickable ? () => goToUser(userId) : undefined}
-                    onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') goToUser(userId); } : undefined}
-                    style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%', cursor: clickable ? 'pointer' : 'default' }}
-                    aria-label={clickable ? `Apri profilo di ${p.username || 'utente'}` : undefined}
-                  >
-                    {renderAvatar(p, 48)}
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ color: '#09090b', fontWeight: 700, fontSize: 16 }}>
-                        {p.username || p.name || `Utente ${userId ?? ''}`}
-                      </span>
-                      <span style={{ fontSize: 13, color: '#6b7280' }}>{p.email || ''}</span>
+                    {/* Participants List */}
+                    <section>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-[#09090b]">Partecipanti</h2>
+                            <span className="bg-gray-200 text-gray-700 py-1 px-3 rounded-full text-sm font-bold">{participants.length}</span>
+                        </div>
+                        
+                        {loadingParticipants ? (
+                            <div className="text-center py-12 text-gray-500 animate-pulse bg-white rounded-2xl border border-gray-100">Caricamento partecipanti...</div>
+                        ) : participants.length === 0 ? (
+                            <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 border-dashed">
+                                <p className="text-gray-500 italic">Nessun partecipante ancora.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {participants.map(p => (
+                                <Link
+                                  key={p.id}
+                                  to={user && String(user.id) === String(p.id) ? '/profilo' : `/user/${p.id}`}
+                                  className="flex items-center space-x-4 p-4 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group"
+                                >
+                                  <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border border-gray-100 shadow-inner">
+                                    {renderAvatar(p, 48)}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-[#09090b] group-hover:underline text-lg truncate">{p.username}</p>
+                                    {p.email && <p className="text-xs text-gray-400 truncate">{p.email}</p>}
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                        )}
+                    </section>
+                </div>
+
+                {/* Right Column: Sticky Action Card */}
+                <div className="lg:col-span-1">
+                    <div className="sticky top-8 space-y-6">
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                            <div className="p-8 space-y-8">
+                                {/* Date & Time */}
+                                <div className="flex items-start space-x-4">
+                                    <div className="bg-gray-50 p-3 rounded-xl">
+                                        <span className="text-3xl">📅</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-wide">Data e Ora</p>
+                                        <p className="text-[#09090b] font-medium text-lg mt-1">
+                                            {new Date(event.date).toLocaleDateString('it-IT', { 
+                                                weekday: 'long', 
+                                                day: 'numeric', 
+                                                month: 'long', 
+                                                year: 'numeric'
+                                            })}
+                                        </p>
+                                        <p className="text-gray-500">
+                                            {new Date(event.date).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Location */}
+                                <div className="flex items-start space-x-4">
+                                    <div className="bg-gray-50 p-3 rounded-xl">
+                                        <span className="text-3xl">📍</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-wide">Luogo</p>
+                                        <p className="text-[#09090b] font-medium text-lg mt-1 break-words">
+                                            {event.location}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <hr className="border-gray-100" />
+
+                                {/* Participation Status */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-bold text-gray-500">Posti occupati</span>
+                                        <span className="text-sm font-bold text-[#09090b]">
+                                            {event.participantsCount} / {event.maxParticipants}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden mb-6">
+                                        <div 
+                                            className="bg-[#09090b] h-2 rounded-full transition-all duration-700 ease-out" 
+                                            style={{ width: `${Math.min(((event.participantsCount || 0) / event.maxParticipants) * 100, 100)}%` }}
+                                        ></div>
+                                    </div>
+
+                                    {isUserParticipating() ? (
+                                        <button
+                                            onClick={handleCancelParticipation}
+                                            disabled={actionLoading}
+                                            className="w-full py-4 bg-red-50 hover:bg-red-100 text-red-600 text-base font-bold rounded-xl transition-all border border-transparent hover:border-red-200 disabled:opacity-50"
+                                        >
+                                            {actionLoading ? 'Elaborazione...' : 'Annulla partecipazione'}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={handleParticipate}
+                                            disabled={actionLoading || (event.maxParticipants && event.participantsCount >= event.maxParticipants)}
+                                            className="w-full py-4 bg-[#09090b] hover:bg-gray-800 text-white text-base font-bold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5"
+                                        >
+                                            {actionLoading ? 'Elaborazione...' : (event.maxParticipants && event.participantsCount >= event.maxParticipants ? 'Sold Out' : 'Partecipa all\'evento')}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-    </main>
+                </div>
+            </div>
+        </div>
+    </div>
   );
 }

@@ -11,6 +11,13 @@ async function createEvent(req, res) {
             return res.status(400).json({ error: 'Tutti i campi sono obbligatori.' });
         }
 
+        // Verifica che la data sia nel futuro
+        const eventDate = new Date(date);
+        const now = new Date();
+        if (eventDate <= now) {
+            return res.status(400).json({ error: 'La data dell\'evento deve essere nel futuro.' });
+        }
+
         const newEvent = await prisma.event.create({
             data: {
                 title,
@@ -44,6 +51,15 @@ async function updateEvent(req, res) {
         const { title, description, date, location, maxParticipants } = req.body;
 
         // Nota: Il middleware isEventOwner ha già verificato che l'utente sia il creatore
+
+        // Verifica che la data (se fornita) sia nel futuro
+        if (date) {
+            const eventDate = new Date(date);
+            const now = new Date();
+            if (eventDate <= now) {
+                return res.status(400).json({ error: 'La data dell\'evento deve essere nel futuro.' });
+            }
+        }
 
         const updatedEvent = await prisma.event.update({
             where: { id: eventId },
@@ -197,7 +213,7 @@ async function getMyParticipations(req, res) {
             },
             orderBy: { event: { date: 'asc' } }
         });
-        
+
         // Restituisci solo i dettagli dell'evento
         const events = registrations.map(reg => reg.event);
         res.json(events);
@@ -209,41 +225,41 @@ async function getMyParticipations(req, res) {
 
 //Ottieni tutti gli eventi futuri impaginati
 async function getFutureEvents(req, res) {
-  try {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.max(1, parseInt(req.query.limit) || 10);
-    const skip = (page - 1) * limit;
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.max(1, parseInt(req.query.limit) || 10);
+        const skip = (page - 1) * limit;
 
-    const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
+        const now = new Date();
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
 
-    // includi eventi dalla mezzanotte di oggi in poi
-    const where = { date: { gte: startOfToday } };
+        // includi eventi dalla mezzanotte di oggi in poi
+        const where = { date: { gte: startOfToday } };
 
-    const total = await prisma.event.count({ where });
+        const total = await prisma.event.count({ where });
 
-    const events = await prisma.event.findMany({
-      where,
-      orderBy: { date: 'asc' },
-      skip,
-      take: limit,
-      include: {
-        creator: { select: { username: true } },
-        _count: { select: { registrations: true } }
-      }
-    });
+        const events = await prisma.event.findMany({
+            where,
+            orderBy: { date: 'asc' },
+            skip,
+            take: limit,
+            include: {
+                creator: { select: { username: true } },
+                _count: { select: { registrations: true } }
+            }
+        });
 
-    const mapped = events.map(e => {
-      const { _count, ...rest } = e;
-      return { ...rest, participantsCount: _count?.registrations ?? 0 };
-    });
+        const mapped = events.map(e => {
+            const { _count, ...rest } = e;
+            return { ...rest, participantsCount: _count?.registrations ?? 0 };
+        });
 
-    res.json({ page, limit, total, events: mapped });
-  } catch (error) {
-    console.error("Errore nel recupero degli eventi futuri:", error);
-    res.status(500).json({ error: 'Errore interno del server.' });
-  }
+        res.json({ page, limit, total, events: mapped });
+    } catch (error) {
+        console.error("Errore nel recupero degli eventi futuri:", error);
+        res.status(500).json({ error: 'Errore interno del server.' });
+    }
 }
 
 //Ottieni eventi creati dagli utenti seguiti (paginated, include creator/_count)
@@ -297,47 +313,47 @@ async function getEventsFromFollowedUsers(req, res) {
 
 // Ottieni dettagli di un evento (inclusi partecipanti)
 async function getEventDetails(req, res) {
-  try {
-    const eventId = parseInt(req.params.id, 10);
-    if (Number.isNaN(eventId)) return res.status(400).json({ error: 'ID evento non valido.' });
+    try {
+        const eventId = parseInt(req.params.id, 10);
+        if (Number.isNaN(eventId)) return res.status(400).json({ error: 'ID evento non valido.' });
 
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      include: {
-        creator: { select: { id: true, username: true, profilePictureUrl: true } },
-        registrations: {
-          include: {
-            user: { select: { id: true, username: true, profilePictureUrl: true, email: true } }
-          },
-          orderBy: { registeredAt: 'asc' }
+        const event = await prisma.event.findUnique({
+            where: { id: eventId },
+            include: {
+                creator: { select: { id: true, username: true, profilePictureUrl: true } },
+                registrations: {
+                    include: {
+                        user: { select: { id: true, username: true, profilePictureUrl: true, email: true } }
+                    },
+                    orderBy: { registeredAt: 'asc' }
+                }
+            }
+        });
+
+        if (!event) {
+            return res.status(404).json({ error: 'Evento non trovato.' });
         }
-      }
-    });
 
-    if (!event) {
-      return res.status(404).json({ error: 'Evento non trovato.' });
+        // mappa le registrations in una lista di partecipanti più semplice
+        const participants = event.registrations.map(r => {
+            return {
+                id: r.user?.id ?? null,
+                username: r.user?.username ?? null,
+                profilePictureUrl: r.user?.profilePictureUrl ?? null,
+                email: r.user?.email ?? null,
+                registeredAt: r.registeredAt
+            };
+        });
+
+        // espone participants separatamente, senza le registrations raw
+        const { registrations, ...rest } = event;
+        const response = { ...rest, participants, participantsCount: participants.length };
+
+        return res.json(response);
+    } catch (error) {
+        console.error("Errore nel recupero dei dettagli dell'evento:", error);
+        res.status(500).json({ error: 'Errore interno del server.' });
     }
-
-    // mappa le registrations in una lista di partecipanti più semplice
-    const participants = event.registrations.map(r => {
-      return {
-        id: r.user?.id ?? null,
-        username: r.user?.username ?? null,
-        profilePictureUrl: r.user?.profilePictureUrl ?? null,
-        email: r.user?.email ?? null,
-        registeredAt: r.registeredAt
-      };
-    });
-
-    // espone participants separatamente, senza le registrations raw
-    const { registrations, ...rest } = event;
-    const response = { ...rest, participants, participantsCount: participants.length };
-
-    return res.json(response);
-  } catch (error) {
-    console.error("Errore nel recupero dei dettagli dell'evento:", error);
-    res.status(500).json({ error: 'Errore interno del server.' });
-  }
 }
 
 module.exports = {

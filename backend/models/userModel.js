@@ -4,17 +4,25 @@ const prisma = new PrismaClient();
 
 
 //creazione di un nuovo utente sul DB
-async function createUser(email, passwordHash, username, dateOfBirth) {
+async function createUser(email, passwordHash, username, dateOfBirth,provider,providerId) {
     const user = {
         email: email,
         passwordHash: passwordHash,
         username: username,
-        dateOfBirth: dateOfBirth
+        dateOfBirth: dateOfBirth,
+        provider: provider,
+        providerId: providerId
     };
     await prisma.user.create({ data: user });
     return;
 }
-
+async function findByProviderId(providerId) {
+    return await prisma.user.findFirst({
+        where: {
+            providerId: providerId,
+        },
+    });
+}
 //restituisce un utente data un email
 async function findByEmail(email) {
     return await prisma.user.findUnique({
@@ -26,11 +34,24 @@ async function findByEmail(email) {
 
 //Restituisce un utente dato un id
 async function findById(id) {
-    return await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
         where: {
             id: id,
         },
+        include: {
+            _count: {
+                select: { followers: true, following: true }
+            }
+        }
     });
+
+    if (user) {
+        user.followersCount = user._count.followers;
+        user.followingCount = user._count.following;
+        delete user._count;
+    }
+
+    return user;
 }
 
 async function findByUsername(username) {
@@ -199,20 +220,53 @@ async function findPublicProfileById(id) {
             username: true,
             bio: true,
             profilePictureUrl: true,
+            _count: {
+                select: {
+                    followers: true,
+                    following: true
+                }
+            },
             createdEvents: {
                 orderBy: { date: 'desc' },
                 include: {
                     _count: { select: { registrations: true } }
                 }
+            },
+            registrations: {
+                include: {
+                    event: {
+                        include: {
+                            _count: { select: { registrations: true } }
+                        }
+                    }
+                },
+                orderBy: { registeredAt: 'desc' }
             }
         }
     });
 
-    if (user && user.createdEvents) {
-        user.createdEvents = user.createdEvents.map(event => {
-            const { _count, ...rest } = event;
-            return { ...rest, participantsCount: _count?.registrations ?? 0 };
-        });
+    if (user) {
+        user.followersCount = user._count.followers;
+        user.followingCount = user._count.following;
+        delete user._count;
+
+        if (user.createdEvents) {
+            user.createdEvents = user.createdEvents.map(event => {
+                const { _count, ...rest } = event;
+                return { ...rest, participantsCount: _count?.registrations ?? 0 };
+            });
+        }
+
+        if (user.registrations) {
+            user.participatedEvents = user.registrations.map(reg => {
+                const event = reg.event;
+                const { _count, ...rest } = event;
+                return { ...rest, participantsCount: _count?.registrations ?? 0 };
+            });
+            delete user.registrations;
+        } else {
+            user.participatedEvents = [];
+        }
     }
 
     return user;
@@ -232,5 +286,6 @@ module.exports = {
     isFollowing,
     followUser,
     unfollowUser,
-    findPublicProfileById
+    findPublicProfileById,
+    findByProviderId
 };
