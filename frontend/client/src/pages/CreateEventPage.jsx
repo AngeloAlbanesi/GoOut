@@ -195,7 +195,7 @@ function CreateEventPage() {
 
                             <div className="flex items-center justify-between pt-8 border-t border-gray-100 mt-8">
                                 <Link
-                                    to="/profile"
+                                    to="/profilo"
                                     className="text-sm font-semibold text-gray-500 hover:text-[#09090b] transition-colors"
                                 >
                                     Annulla
