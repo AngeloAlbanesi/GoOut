@@ -111,7 +111,7 @@ export default function EventCard({ event, onParticipationChange }) {
 
       <p style={{ margin: '8px 0', color: '#374151' }}>{event.description}</p>
 
-      <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#6b7280', alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 13, color: '#6b7280', alignItems: 'center' }}>
         <span>{event.location || 'Luogo non specificato'}</span>
         <span>•</span>
         <span>{participantsCount}/{event.maxParticipants} partecipanti</span>

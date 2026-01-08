@@ -190,22 +190,22 @@ function ProfilePage() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="px-8 py-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                                    <div className="px-6 py-6 bg-gray-50 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4">
                                         <Link
                                             to={`/events/edit/${event.id}`}
-                                            className="text-gray-600 hover:text-[#09090b] font-semibold text-sm transition-colors"
+                                            className="w-full md:w-auto text-center py-2 md:py-0 text-gray-600 hover:text-[#09090b] font-semibold text-sm transition-colors border md:border-none border-gray-200 rounded-lg md:rounded-none bg-white md:bg-transparent shadow-sm md:shadow-none"
                                         >
                                             Modifica
                                         </Link>
                                         <button
                                             onClick={() => setSelectedEvent(event)}
-                                            className="text-gray-600 hover:text-[#09090b] font-semibold text-sm transition-colors"
+                                            className="w-full md:w-auto text-center py-2 md:py-0 text-gray-600 hover:text-[#09090b] font-semibold text-sm transition-colors border md:border-none border-gray-200 rounded-lg md:rounded-none bg-white md:bg-transparent shadow-sm md:shadow-none"
                                         >
                                             Dettagli
                                         </button>
                                         <button
                                             onClick={() => handleDeleteEvent(event.id)}
-                                            className="text-gray-400 hover:text-red-600 font-semibold text-sm transition-colors"
+                                            className="w-full md:w-auto text-center py-2 md:py-0 text-gray-400 hover:text-red-600 font-semibold text-sm transition-colors border md:border-none border-gray-200 rounded-lg md:rounded-none bg-white md:bg-transparent shadow-sm md:shadow-none"
                                         >
                                             Elimina
                                         </button>

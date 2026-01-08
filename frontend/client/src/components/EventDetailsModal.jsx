@@ -125,9 +125,9 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 
                 {/* Header */}
-                <div className="bg-[#09090b] px-8 py-6 flex justify-between items-start shrink-0">
+                <div className="bg-[#09090b] px-4 py-4 md:px-8 md:py-6 flex justify-between items-start shrink-0">
                     <div>
-                        <h2 className="text-2xl font-bold text-white mb-1">{event.title}</h2>
+                        <h2 className="text-xl md:text-2xl font-bold text-white mb-1">{event.title}</h2>
                         <p className="text-gray-400 text-sm">Dettagli Evento</p>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
@@ -138,18 +138,18 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
                 </div>
 
                 {/* Body */}
-                <div className="p-8 overflow-y-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div className="p-4 md:p-8 overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 mb-6 md:mb-8">
                         <div className="space-y-1">
                             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Data e Ora</span>
-                            <div className="flex items-center text-[#09090b] font-medium text-lg">
+                            <div className="flex items-center text-[#09090b] font-medium text-base md:text-lg">
                                 <span className="mr-2">📅</span>
                                 {new Date(event.date).toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </div>
                         </div>
                         <div className="space-y-1">
                             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Luogo</span>
-                            <div className="flex items-center text-[#09090b] font-medium text-lg">
+                            <div className="flex items-center text-[#09090b] font-medium text-base md:text-lg">
                                 <span className="mr-2">📍</span>
                                 {event.location}
                             </div>
@@ -157,7 +157,7 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
                         {event.creator && (
                             <div className="space-y-1">
                                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Organizzatore</span>
-                                <Link to={`/user/${event.creator.id}`} className="flex items-center text-[#09090b] font-medium text-lg hover:underline" onClick={onClose}>
+                                <Link to={`/user/${event.creator.id}`} className="flex items-center text-[#09090b] font-medium text-base md:text-lg hover:underline" onClick={onClose}>
                                     <span className="mr-2">👤</span>
                                     {event.creator.username}
                                 </Link>
@@ -165,14 +165,14 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
                         )}
                     </div>
 
-                    <div className="mb-8 space-y-2">
+                    <div className="mb-6 md:mb-8 space-y-2">
                         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Descrizione</span>
-                        <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100">{event.description}</p>
+                        <p className="text-gray-700 leading-relaxed bg-gray-50 p-3 md:p-4 rounded-xl border border-gray-100 text-sm md:text-base">{event.description}</p>
                     </div>
 
                     {/* Participation Section */}
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-100 mb-8">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="bg-gray-50 rounded-xl p-4 md:p-6 border border-gray-100 mb-6 md:mb-8">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0 mb-4">
                             <div>
                                 <span className="text-sm font-semibold text-[#09090b]">Stato Partecipazione</span>
                                 <p className="text-xs text-gray-500 mt-1">
@@ -183,7 +183,7 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
                                 <button
                                     onClick={handleCancelParticipation}
                                     disabled={actionLoading}
-                                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                                    className="w-full md:w-auto px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
                                 >
                                     {actionLoading ? '...' : 'Annulla partecipazione'}
                                 </button>
@@ -191,7 +191,7 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
                                 <button
                                     onClick={handleParticipate}
                                     disabled={actionLoading || (event.maxParticipants && event.participantsCount >= event.maxParticipants)}
-                                    className="px-4 py-2 bg-[#09090b] hover:bg-gray-800 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full md:w-auto px-4 py-2 bg-[#09090b] hover:bg-gray-800 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {actionLoading ? '...' : (event.maxParticipants && event.participantsCount >= event.maxParticipants ? 'Sold Out' : 'Partecipa')}
                                 </button>
@@ -232,7 +232,7 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
                 </div>
 
                 {/* Footer */}
-                <div className="bg-gray-50 px-8 py-4 border-t border-gray-100 flex justify-end">
+                <div className="bg-gray-50 px-4 py-3 md:px-8 md:py-4 border-t border-gray-100 flex justify-end">
                     <button onClick={onClose} className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 hover:text-[#09090b] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b]">
                         Chiudi
                     </button>
