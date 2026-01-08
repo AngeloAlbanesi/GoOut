@@ -136,13 +136,20 @@ function ProfilePage() {
                             </div>
                         </div>
                     </div>
-                    <div className="mt-4 md:mt-0 shrink-0">
+                    <div className="mt-4 md:mt-0 shrink-0 flex flex-col gap-3">
                         <Link
                             to="/events/new"
                             style={{ color: 'white' }}
-                            className="inline-flex items-center px-8 py-4 border border-transparent text-base font-semibold rounded-xl shadow-sm text-white hover:text-white bg-[#09090b] hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all transform hover:-translate-y-0.5"
+                            className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-semibold rounded-xl shadow-sm text-white hover:text-white bg-[#09090b] hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all transform hover:-translate-y-0.5"
                         >
                             <span className="mr-2 text-xl text-white font-bold">+</span> Crea Evento
+                        </Link>
+                        <Link
+                            to="/miei-dati"
+                            style={{ color: 'white' }}
+                            className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-semibold rounded-xl shadow-sm text-white hover:text-white bg-[#09090b] hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09090b] transition-all transform hover:-translate-y-0.5"
+                        >
+                            I Miei Dati
                         </Link>
                     </div>
                 </div>

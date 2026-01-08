@@ -36,7 +36,6 @@ function Navbar() {
                         {isAuthenticated ? (
                             <>
                                 <Link to="/profilo" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">Profilo</Link>
-                                <Link to="/miei-dati" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">I Miei Dati</Link>
                                 <Link to="/utenti" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">Cerca Utenti</Link>
                                 <Link to="/events/new" className="text-sm font-medium text-gray-700 hover:text-[#09090b]">Crea Evento</Link>
                                 <button
