@@ -46,12 +46,12 @@ export default function EventPage() {
         
         if (!eventId || String(eventId) !== String(id)) return;
         
-        // Ignore events originating from this page itself, as it handles its own updates via API fetch
+        // Ignora se l'evento è stato emesso da questa stessa pagina
         if (origin === 'page') return;
 
         setEvent(prev => {
           if (!prev) return prev;
-          // Guard clause: If state already matches the target status, ignore to prevent double-counting
+          // Nessun cambiamento necessario
           if (prev.isParticipating === Boolean(participating)) return prev;
 
           const currentCount = prev.participantsCount ?? 0;
@@ -59,7 +59,7 @@ export default function EventPage() {
           return { ...prev, participantsCount: nextCount, isParticipating: Boolean(participating) };
         });
 
-        // Update participants list if we have user info, otherwise trigger a background refresh
+        // Aggiorna l'elenco dei partecipanti se abbiamo informazioni sull'utente, altrimenti attiva un aggiornamento in background
         if (participating) {
           if (u && u.id) {
             setParticipants(prev => {
@@ -67,7 +67,7 @@ export default function EventPage() {
               return [...prev, { id: u.id, username: u.username || null, profilePictureUrl: u.profilePictureUrl || null, email: u.email || null }];
             });
           } else {
-            // Background refresh if user details missing
+            // Aggiornamento in background se mancano i dettagli dell'utente
             eventService.getEventDetails(id).then(r => {
                 if (r.data) setParticipants(r.data.participants || []);
             }).catch(console.error);
@@ -127,8 +127,8 @@ export default function EventPage() {
     setActionLoading(true);
     try {
       await eventService.participate(id);
-      
-      // Fetch fresh data from server to ensure accuracy (prevents race conditions/double counting)
+
+// Recupera dati aggiornati dal server per garantire l'accuratezza (previene race condition /doppio conteggio)
       const res = await eventService.getEventDetails(id);
       if (res.data) {
           setEvent(res.data);
@@ -150,7 +150,7 @@ export default function EventPage() {
     try {
       await eventService.cancelParticipation(id);
 
-      // Fetch fresh data from server to ensure accuracy
+      // Recupera dati aggiornati dal server per garantirne l'accuratezza
       const res = await eventService.getEventDetails(id);
       if (res.data) {
           setEvent(res.data);
@@ -266,7 +266,7 @@ export default function EventPage() {
                         </div>
                     </section>
 
-                    {/* Participants List */}
+                    {/* Lista Partecipanti */}
                     <section>
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-[#09090b]">Partecipanti</h2>
@@ -301,7 +301,7 @@ export default function EventPage() {
                     </section>
                 </div>
 
-                {/* Right Column: Sticky Action Card */}
+                {/* Colonna destra: Sticky Action Card */}
                 <div className="lg:col-span-1">
                     <div className="sticky top-8 space-y-6">
                         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
@@ -342,7 +342,7 @@ export default function EventPage() {
 
                                 <hr className="border-gray-100" />
 
-                                {/* Participation Status */}
+                                {/* Stato partecipanti */}
                                 <div>
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-sm font-bold text-gray-500">Posti occupati</span>

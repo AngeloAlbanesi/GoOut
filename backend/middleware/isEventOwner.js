@@ -1,7 +1,8 @@
 //middleware/isEventOwner.js
 const {findCreatorByID} = require('../models/eventModel.js');
 const isEventOwner = async (req,res, next) =>
-{        
+{       
+    //controlla se l'utente loggato è il creatore dell'evento 
         try {
         
             const eventId = parseInt(req.params.id, 10);

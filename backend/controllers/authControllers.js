@@ -18,7 +18,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 
 
-// Server-side password validation helper
+// Validatore password lato server
 function validatePasswordServer(pw) {
     const errors = [];
     const minLength = 10;
@@ -59,6 +59,8 @@ async function generateAndSetTokens(user, res) {
     });
     return { accessToken, refreshToken };
 }
+
+//Aggiunge un secret alla password prima dell'hashing
 async function addSecretToPassword(password) {
     const secret = process.env.PASSWORD_SECRET;
     const passwordWithSecret = crypto
@@ -68,6 +70,7 @@ async function addSecretToPassword(password) {
     return passwordWithSecret;
 }
 
+// Registrazione utente
 async function register(req, res) {
     const { email, password, username, dateOfBirth } = req.body;
     // Validazione email
@@ -159,6 +162,8 @@ async function register(req, res) {
         return res.status(500).json({ errore: "Errore Interno creazione utente", detail, code: 500, status: "internal server error" });
     }
 }
+
+// Login utente
 async function login(req, res) {
     const { user, password } = req.body;
     if (!password) {
@@ -208,6 +213,7 @@ async function login(req, res) {
     });
 }
 
+// Logout utente
 async function logout(req, res) {
     try {
         const refreshToken = req.cookies.refreshToken;
@@ -235,7 +241,7 @@ async function logout(req, res) {
             status: "internal server error" });
     }
 }
-
+// Refresh token endpoint
 async function refreshToken(req, res) {
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) {
@@ -279,6 +285,7 @@ async function refreshToken(req, res) {
     }
 }
 
+// Registrazione con Google
 async function registerWithGoogle(req, res) {
     const { credential, username, dateOfBirth } = req.body;
 
@@ -402,7 +409,7 @@ async function registerWithGoogle(req, res) {
         });
     }
 }
-
+// Login con Google 
 async function loginWithGoogle(req, res) {
     const { credential } = req.body;
     if (!credential) {

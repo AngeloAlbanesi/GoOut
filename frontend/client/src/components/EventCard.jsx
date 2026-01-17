@@ -24,8 +24,7 @@ export default function EventCard({ event, onParticipationChange }) {
         const { eventId, participating, origin } = e.detail || {};
         if (String(eventId) !== String(event.id)) return;
         
-        // Ignore events from this card (or other cards) to prevent double counting if we already updated locally
-        // or if the parent updates us via props
+       // ignora se l'evento è stato emesso da questa stessa card
         if (origin === 'card') return;
 
         setIsParticipating(Boolean(participating));
@@ -54,7 +53,7 @@ export default function EventCard({ event, onParticipationChange }) {
       setParticipantsCount(prev => prev + 1);
       setIsParticipating(true);
       
-      // Always emit global event so other components can update
+      // sempre emette evento globale in modo che altri componenti possano aggiornarsi
       try {
         const detail = { eventId: event.id, participating: true, user: user ?? null, origin: 'card' };
         console.log('[EventCard] Emitting participationChanged', detail);
@@ -79,8 +78,8 @@ export default function EventCard({ event, onParticipationChange }) {
       console.log('[EventCard] API cancel OK');
       setParticipantsCount(prev => Math.max(0, prev - 1));
       setIsParticipating(false);
-      
-      // Always emit global event so other components can update
+
+      // sempre emette evento globale in modo che altri componenti possano aggiornarsi
       try {
         const detail = { eventId: event.id, participating: false, user: user ?? null, origin: 'card' };
         console.log('[EventCard] Emitting participationChanged', detail);

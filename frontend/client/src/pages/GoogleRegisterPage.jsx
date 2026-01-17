@@ -23,6 +23,7 @@ function GoogleRegisterPage() {
         }
     }, [credential, navigate]);
 
+    // Funzione per parsare errori API in messaggi leggibili
     function parseApiError(err) {
         const data = err?.response?.data;
         if (!data) return err?.message || String(err);
@@ -36,6 +37,8 @@ function GoogleRegisterPage() {
         return joined || JSON.stringify(data);
     }
 
+
+    // Gestione invio del form
     const handleSubmit = async (event) => {
         event.preventDefault();
         setError(null);

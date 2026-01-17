@@ -2,20 +2,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function insertEvent(creatorId){
-   //funzione di mock per prova
-    const evento = {
-        title:"castagnata",
-        description:"castangata in piazza",
-        location:"montegiorgio",
-        date : new Date(),
-        creatorId: creatorId
-    }
-    await prisma.event.create({ data: evento });
-    return
 
-    
-}
 
 async function findCreatorByID(eventId) {
     

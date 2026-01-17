@@ -10,12 +10,12 @@ import './index.css'; // Import global styles (Tailwind)
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const root = document.getElementById("root");
 
-// GLOBAL DEBUG: Log ALL participationChanged events + Store for late listeners
+// GLOBAL DEBUG: Log Tutti gli eventi di partecipazione  
 window.addEventListener('participationChanged', (e) => {
   console.log('[GLOBAL] participationChanged event fired:', e.detail);
-  // Store last event so components that mount after can still see it
+  // Salva l'ultimo evento per i listener che si registrano dopo
   window.__lastParticipationEvent = e.detail;
-}, true); // Use capture phase to catch all events
+}, true); // Usa capture phase to log early
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>

@@ -14,7 +14,7 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
     useEffect(() => {
         if (initialEvent) {
             setEvent(initialEvent);
-            // Fetch fresh details to check participation status and get participants
+            // Fetch dettagli evento completi, inclusi partecipanti
             const fetchDetails = async () => {
                 try {
                     setLoadingParticipants(true);
@@ -23,7 +23,7 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
                     const fetchedParticipants = detailsRes.data.participants || [];
                     setParticipants(fetchedParticipants);
 
-                    // Check if current user is participating
+                    // Controlla se l'utente loggato è tra i partecipanti
                     let isParticipating = false;
                     if (user) {
                          const uId = String(user.id ?? user.Id ?? '');
@@ -59,11 +59,11 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
                 participantsCount: (prev.participantsCount || 0) + 1,
                 isParticipating: true
             }));
-            // Update participants list locally
+            // aggiorna lista partecipanti localmente
             if (user) {
                 setParticipants(prev => [...prev, { id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl }]);
             } else {
-                 // Fallback refetch
+                 // Refetch di fallback
                  const res = await eventService.getEventParticipants(event.id);
                  setParticipants(Array.isArray(res.data) ? res.data : (res.data.participants || []));
             }
@@ -85,11 +85,11 @@ function EventDetailsModal({ event: initialEvent, onClose }) {
                 participantsCount: Math.max(0, (prev.participantsCount || 0) - 1),
                 isParticipating: false
             }));
-            // Update participants list locally
+            // aggiorna lista partecipanti localmente
             if (user) {
                 setParticipants(prev => prev.filter(p => p.id !== user.id));
             } else {
-                // Fallback refetch
+                // fallback refetch della lista partecipanti
                 const res = await eventService.getEventParticipants(event.id);
                 setParticipants(Array.isArray(res.data) ? res.data : (res.data.participants || []));
             }

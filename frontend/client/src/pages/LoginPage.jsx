@@ -15,12 +15,17 @@ function LoginPage() {
     const navigate = useNavigate();
     const authTools = useAuth();
 
+
+    // Gestione login con Google
     const handleGoogleSuccess = async (credentialResponse) => {
         console.log('Google credential response (login):', credentialResponse);
         setError(null);
         setSuccess(null);
         setLoading(true);
+
+        // Effettua il login con la credential di Google
         try {
+            
             const response = await authService.loginWithGoogle(credentialResponse.credential);
             const userData = response.data.data;
             authTools.setUser(userData);

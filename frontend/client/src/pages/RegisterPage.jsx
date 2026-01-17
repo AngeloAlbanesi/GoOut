@@ -87,13 +87,13 @@ function RegisterPage() {
             const response = await authService.register(userData);
             console.log('Risposta dal server:', response.data);
 
-            // server sets httpOnly cookie; fetch full profile and update client auth state
+            // il server imposta il cookie httpOnly; recupera il profilo completo e aggiorna lo stato di autenticazione del client
             try {
                 const profileRes = await userService.mieiDati();
                 const profile = profileRes?.data ?? null;
                 if (profile && typeof setUser === 'function') setUser(profile);
             } catch (e) {
-                // fallback: use returned minimal data if profile fetch fails
+                // fallback: usa i dati minimi ritornati dalla registrazione
                 const returned = response?.data?.data ?? null;
                 if (returned && typeof setUser === 'function') setUser(returned);
                 console.warn('Could not fetch full profile after register, used minimal returned data:', e);

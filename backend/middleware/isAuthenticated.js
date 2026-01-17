@@ -6,7 +6,7 @@ const isAuthenticated = (req, res, next) => {
                 if (!token) {
                  return res.status(401).json({ message: 'Accesso non autorizzato: Token mancante.' });
         }
- 
+        // Verifica e decodifica il token JWT
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
         req.id = decodedToken.Id;   
 

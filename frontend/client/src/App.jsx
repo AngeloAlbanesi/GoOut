@@ -25,7 +25,7 @@ function Navbar() {
     const handleLogout = async () => {
         await logout();
         navigate('/login');
-        setIsMenuOpen(false); // Close menu on logout
+        setIsMenuOpen(false); // Chiudi il menu su logout
     };
 
     const closeMenu = () => setIsMenuOpen(false);

@@ -29,11 +29,11 @@ export default function HomePage() {
   const friendsSentinelRef = useRef(null);
   const [friendsError, setFriendsError] = useState(null);
 
-  // Track user's current participations (ids as strings)
+  // Tieni traccia delle attuali partecipazioni dell'utente (ID come stringhe)
   const [myParticipations, setMyParticipations] = useState(new Set());
   const [participationsLoaded, setParticipationsLoaded] = useState(false);
 
-  // Fetch user's participations on mount / when auth changes
+  // Recupera le partecipazioni dell'utente 
   useEffect(() => {
     let mounted = true;
     if (!isAuthenticated) {
@@ -50,7 +50,7 @@ export default function HomePage() {
         const set = new Set(list.map(e => String(e.id)));
         setMyParticipations(set);
 
-        // mark already loaded events accordingly
+        // contrassegnare  gli eventi già caricati
         setEvents(prev => prev.map(ev => ({ ...ev, isParticipating: set.has(String(ev.id)) })));
         setFriendsEvents(prev => prev.map(ev => ({ ...ev, isParticipating: set.has(String(ev.id)) })));
       } catch (err) {
@@ -74,7 +74,7 @@ export default function HomePage() {
         throw new Error('Risposta API inattesa');
       }
 
-      // map events and mark participation according to myParticipations
+      // mappa gli eventi e contrassegna la partecipazione in base a myParticipations
       const mappedEvents = data.events.map(e => ({ ...e, isParticipating: myParticipations.has(String(e.id)) }));
 
       setEvents(prev => (p === 1 ? mappedEvents : [...prev, ...mappedEvents]));
@@ -129,7 +129,7 @@ export default function HomePage() {
   }, [limit, friendsEvents.length, myParticipations]);
 
   useEffect(() => {
-    // load first page global feed ONLY after participations are loaded
+    // carica il feed globale della prima pagina SOLO dopo aver caricato le partecipazioni
     if (!participationsLoaded) return;
     loadPage(1);
     setPage(1);
@@ -155,7 +155,7 @@ export default function HomePage() {
     loadPage(page);
   }, [page, loadPage]);
 
-  // Friends observers (only active when viewing friends)
+  // Friends observers (attivi solo quando si visualizzano gli amici)
   useEffect(() => {
     if (!friendsSentinelRef.current) return;
     if (friendsObserverRef.current) friendsObserverRef.current.disconnect();
@@ -175,7 +175,7 @@ export default function HomePage() {
     loadFriendsPage(friendsPage);
   }, [friendsPage, loadFriendsPage]);
 
-  // When switching to friends, ensure they're loaded (and require auth)
+  // Switch agli amici, si assicura che siano caricati ( richiede l'autorizzazione)
   const handleSwitchToFriends = () => {
     if (!isAuthenticated) {
       navigate('/login');
@@ -201,15 +201,15 @@ export default function HomePage() {
   const activeStyle = { background: '#09090b', color: '#fff' };
   const inactiveStyle = { background: '#fff', color: '#111', border: '1px solid #e5e7eb' };
 
-  // Listen for global participation events (EventCard / EventPage dispatch)
+  // Ascolta gli eventi di partecipazione globale (EventCard / EventPage dispatch)
   useEffect(() => {
     const handler = (e) => {
       try {
         const { eventId, participating, origin } = e.detail || {};
         if (!eventId) return;
 
-        // Ignore events emitted by this HomePage instance (origin === 'home')
-        // We only react to events from EventCard (origin === 'card') or EventPage (origin === 'page')
+      // Ignora gli eventi emessi da questa istanza di HomePage (origin === 'home')
+      // Reagiamo solo agli eventi di EventCard (origin === 'card') o EventPage (origin === 'page') 
         if (origin === 'home') return;
 
         const idStr = String(eventId);

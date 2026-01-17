@@ -16,6 +16,8 @@ async function createUser(email, passwordHash, username, dateOfBirth,provider,pr
     await prisma.user.create({ data: user });
     return;
 }
+
+//restituisce un utente dato un providerId
 async function findByProviderId(providerId) {
     return await prisma.user.findFirst({
         where: {
@@ -23,6 +25,8 @@ async function findByProviderId(providerId) {
         },
     });
 }
+
+
 //restituisce un utente data un email
 async function findByEmail(email) {
     return await prisma.user.findUnique({
@@ -131,6 +135,7 @@ async function searchUsers(term, currentUserId) {
     });
 }
 
+// Aggiorna l'URL della foto del profilo di un utente
 async function updateUserProfilePicture(id, profilePictureUrl) {
     return await prisma.user.update({
         where: { id: id },
@@ -168,6 +173,7 @@ async function isFollowing(followerId, followingId) {
   });
 }
 
+// crea una relazione di follow tra due utenti
 async function followUser(followerId, followingId) {
   const fId = Number(followerId);
   const foId = Number(followingId);
@@ -195,6 +201,7 @@ async function followUser(followerId, followingId) {
   }
 }
 
+// rimuove una relazione di follow tra due utenti
 async function unfollowUser(followerId, followingId) {
   const fId = Number(followerId);
   const foId = Number(followingId);
@@ -212,6 +219,7 @@ async function unfollowUser(followerId, followingId) {
   }
 }
 
+// restituisce il profilo pubblico di un utente dato il suo id
 async function findPublicProfileById(id) {
     const user = await prisma.user.findUnique({
         where: { id: Number(id) },

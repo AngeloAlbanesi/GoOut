@@ -55,7 +55,7 @@ function PublicProfilePage() {
             setIsFollowing(!isFollowing);
         } catch (err) {
             console.error('Errore follow/unfollow:', err);
-            // Revert state on error if needed, but for now just log
+            
         } finally {
             setActionLoading(false);
         }
