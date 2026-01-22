@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const eventModel = require('../models/eventModel');
 
 // Crea un nuovo evento
 async function createEvent(req, res) {
@@ -7,39 +6,29 @@ async function createEvent(req, res) {
         const { title, description, date, location, maxParticipants } = req.body;
         const userId = req.id; // Ottenuto dal middleware isAuthenticated
 
-        if (!title || !description || !date || !location || !maxParticipants) {
-            return res.status(400).json({ error: 'Tutti i campi sono obbligatori.' });
-        }
-
-        // Verifica che la data sia nel futuro
-        const eventDate = new Date(date);
-        const now = new Date();
-        if (eventDate <= now) {
-            return res.status(400).json({ error: 'La data dell\'evento deve essere nel futuro.' });
-        }
-
-        const newEvent = await prisma.event.create({
-            data: {
-                title,
-                description,
-                date: new Date(date),
-                location,
-                maxParticipants: parseInt(maxParticipants),
-                creatorId: userId
-            }
-        });
-
-        // Iscrivi automaticamente il creatore all'evento
-        await prisma.registration.create({
-            data: {
-                userId: userId,
-                eventId: newEvent.id
-            }
-        });
+        const newEvent = await eventModel.createEvent(
+            title,
+            description,
+            date,
+            location,
+            maxParticipants,
+            userId
+        );
 
         res.status(201).json(newEvent);
     } catch (error) {
         console.error("Errore nella creazione dell'evento:", error);
+
+        if (error.message === 'MISSING_FIELDS') {
+            return res.status(400).json({ error: 'Tutti i campi sono obbligatori.' });
+        }
+        if (error.message === 'INVALID_DATE') {
+            return res.status(400).json({ error: 'La data dell\'evento deve essere nel futuro.' });
+        }
+        if (error.message === 'INVALID_ID') {
+            return res.status(400).json({ error: 'ID utente non valido.' });
+        }
+
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
@@ -52,29 +41,28 @@ async function updateEvent(req, res) {
 
         // Nota: Il middleware isEventOwner ha già verificato che l'utente sia il creatore
 
-        // Verifica che la data (se fornita) sia nel futuro
-        if (date) {
-            const eventDate = new Date(date);
-            const now = new Date();
-            if (eventDate <= now) {
-                return res.status(400).json({ error: 'La data dell\'evento deve essere nel futuro.' });
-            }
-        }
-
-        const updatedEvent = await prisma.event.update({
-            where: { id: eventId },
-            data: {
-                title,
-                description,
-                date: date ? new Date(date) : undefined,
-                location,
-                maxParticipants: maxParticipants ? parseInt(maxParticipants) : undefined
-            }
+        const updatedEvent = await eventModel.updateEvent(eventId, {
+            title,
+            description,
+            date,
+            location,
+            maxParticipants
         });
 
         res.json(updatedEvent);
     } catch (error) {
         console.error("Errore nella modifica dell'evento:", error);
+
+        if (error.message === 'INVALID_DATE') {
+            return res.status(400).json({ error: 'La data dell\'evento deve essere nel futuro.' });
+        }
+        if (error.message === 'EVENT_NOT_FOUND') {
+            return res.status(404).json({ error: 'Evento non trovato.' });
+        }
+        if (error.message === 'INVALID_ID') {
+            return res.status(400).json({ error: 'ID evento non valido.' });
+        }
+
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
@@ -84,17 +72,19 @@ async function deleteEvent(req, res) {
     try {
         const eventId = parseInt(req.params.id);
 
-        await prisma.registration.deleteMany({
-            where: { eventId: eventId }
-        });
-
-        await prisma.event.delete({
-            where: { id: eventId }
-        });
+        await eventModel.deleteEvent(eventId);
 
         res.json({ message: 'Evento cancellato con successo.' });
     } catch (error) {
         console.error("Errore nella cancellazione dell'evento:", error);
+
+        if (error.message === 'EVENT_NOT_FOUND') {
+            return res.status(404).json({ error: 'Evento non trovato.' });
+        }
+        if (error.message === 'INVALID_ID') {
+            return res.status(400).json({ error: 'ID evento non valido.' });
+        }
+
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
@@ -105,46 +95,25 @@ async function participateEvent(req, res) {
         const eventId = parseInt(req.params.id);
         const userId = req.id;
 
-        // Verifica se l'evento esiste
-        const event = await prisma.event.findUnique({
-            where: { id: eventId },
-            include: { registrations: true }
-        });
-
-        if (!event) {
-            return res.status(404).json({ error: 'Evento non trovato.' });
-        }
-
-        // Verifica se l'evento è pieno
-        if (event.registrations.length >= event.maxParticipants) {
-            return res.status(400).json({ error: 'Evento al completo.' });
-        }
-
-        // Verifica se l'utente è già iscritto
-        const existingRegistration = await prisma.registration.findUnique({
-            where: {
-                userId_eventId: {
-                    userId: userId,
-                    eventId: eventId
-                }
-            }
-        });
-
-        if (existingRegistration) {
-            return res.status(400).json({ error: 'Sei già iscritto a questo evento.' });
-        }
-
-        // Crea la registrazione
-        const registration = await prisma.registration.create({
-            data: {
-                userId: userId,
-                eventId: eventId
-            }
-        });
+        const registration = await eventModel.createRegistration(userId, eventId);
 
         res.status(201).json({ message: 'Iscrizione avvenuta con successo.', registration });
     } catch (error) {
         console.error("Errore nell'iscrizione all'evento:", error);
+
+        if (error.message === 'EVENT_NOT_FOUND') {
+            return res.status(404).json({ error: 'Evento non trovato.' });
+        }
+        if (error.message === 'EVENT_FULL') {
+            return res.status(400).json({ error: 'Evento al completo.' });
+        }
+        if (error.message === 'ALREADY_REGISTERED') {
+            return res.status(400).json({ error: 'Sei già iscritto a questo evento.' });
+        }
+        if (error.message === 'INVALID_ID') {
+            return res.status(400).json({ error: 'ID non valido.' });
+        }
+
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
@@ -155,21 +124,19 @@ async function cancelParticipation(req, res) {
         const eventId = parseInt(req.params.id);
         const userId = req.id;
 
-        await prisma.registration.delete({
-            where: {
-                userId_eventId: {
-                    userId: userId,
-                    eventId: eventId
-                }
-            }
-        });
+        await eventModel.deleteRegistration(userId, eventId);
 
         res.json({ message: 'Iscrizione cancellata con successo.' });
     } catch (error) {
-        if (error.code === 'P2025') {
+        console.error("Errore nella cancellazione dell'iscrizione:", error);
+
+        if (error.message === 'REGISTRATION_NOT_FOUND') {
             return res.status(404).json({ error: 'Iscrizione non trovata.' });
         }
-        console.error("Errore nella cancellazione dell'iscrizione:", error);
+        if (error.message === 'INVALID_ID') {
+            return res.status(400).json({ error: 'ID non valido.' });
+        }
+
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
@@ -179,14 +146,10 @@ async function cancelParticipation(req, res) {
 async function getMyEvents(req, res) {
     try {
         const userId = req.id;
-        const events = await prisma.event.findMany({
-            where: { creatorId: userId },
-            orderBy: { date: 'asc' },
-            include: {
-                _count: { select: { registrations: true } }
-            }
-        });
 
+        const events = await eventModel.getEventsByCreator(userId);
+
+        // Mappatura per presentazione: _count -> participantsCount
         const mapped = events.map(e => {
             const { _count, ...rest } = e;
             return { ...rest, participantsCount: _count?.registrations ?? 0 };
@@ -195,6 +158,11 @@ async function getMyEvents(req, res) {
         res.json(mapped);
     } catch (error) {
         console.error("Errore nel recupero dei miei eventi:", error);
+
+        if (error.message === 'INVALID_ID') {
+            return res.status(400).json({ error: 'ID utente non valido.' });
+        }
+
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
@@ -204,21 +172,19 @@ async function getMyEvents(req, res) {
 async function getMyParticipations(req, res) {
     try {
         const userId = req.id;
-        const registrations = await prisma.registration.findMany({
-            where: { userId: userId },
-            include: {
-                event: {
-                    include: { creator: { select: { username: true } } }
-                }
-            },
-            orderBy: { event: { date: 'asc' } }
-        });
+
+        const registrations = await eventModel.getUserRegistrations(userId);
 
         // Restituisci solo i dettagli dell'evento
         const events = registrations.map(reg => reg.event);
         res.json(events);
     } catch (error) {
         console.error("Errore nel recupero delle partecipazioni:", error);
+
+        if (error.message === 'INVALID_ID') {
+            return res.status(400).json({ error: 'ID utente non valido.' });
+        }
+
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
@@ -228,28 +194,19 @@ async function getFutureEvents(req, res) {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.max(1, parseInt(req.query.limit) || 10);
-        const skip = (page - 1) * limit;
 
         const now = new Date();
         const startOfToday = new Date(now);
         startOfToday.setHours(0, 0, 0, 0);
 
-        // includi eventi dalla mezzanotte di oggi in poi
+        // Conta il totale degli eventi futuri
         const where = { date: { gte: startOfToday } };
+        const total = await eventModel.countEvents(where);
 
-        const total = await prisma.event.count({ where });
+        // Ottieni eventi paginati
+        const events = await eventModel.getFutureEventsPaginated(page, limit);
 
-        const events = await prisma.event.findMany({
-            where,
-            orderBy: { date: 'asc' },
-            skip,
-            take: limit,
-            include: {
-                creator: { select: { username: true } },
-                _count: { select: { registrations: true } }
-            }
-        });
-
+        // Mappatura per presentazione: _count -> participantsCount
         const mapped = events.map(e => {
             const { _count, ...rest } = e;
             return { ...rest, participantsCount: _count?.registrations ?? 0 };
@@ -266,39 +223,25 @@ async function getFutureEvents(req, res) {
 async function getEventsFromFollowedUsers(req, res) {
     try {
         const userId = req.id;
-
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.max(1, parseInt(req.query.limit) || 10);
-        const skip = (page - 1) * limit;
 
         // Recupera gli ID degli utenti seguiti
-        const followedRows = await prisma.follows.findMany({
-            where: { followerId: userId },
-            select: { followingId: true }
-        });
+        const followedUserIds = await eventModel.getFollowedUserIds(userId);
 
-        const followedUserIds = followedRows.map(f => f.followingId);
-
-        // se non segue nessuno, ritorniamo subito un oggetto paginato vuoto
+        // Se non segue nessuno, ritorniamo subito un oggetto paginato vuoto
         if (followedUserIds.length === 0) {
             return res.json({ page, limit, total: 0, events: [] });
         }
 
+        // Conta il totale
         const where = { creatorId: { in: followedUserIds }, date: { gte: new Date() } };
+        const total = await eventModel.countEvents(where);
 
-        const total = await prisma.event.count({ where });
+        // Ottieni eventi paginati
+        const events = await eventModel.getEventsByFollowing(followedUserIds, page, limit);
 
-        const events = await prisma.event.findMany({
-            where,
-            orderBy: { date: 'asc' },
-            skip,
-            take: limit,
-            include: {
-                creator: { select: { id: true, username: true, profilePictureUrl: true } },
-                _count: { select: { registrations: true } }
-            }
-        });
-
+        // Mappatura per presentazione: _count -> participantsCount
         const mapped = events.map(e => {
             const { _count, ...rest } = e;
             return { ...rest, participantsCount: _count?.registrations ?? 0 };
@@ -307,6 +250,11 @@ async function getEventsFromFollowedUsers(req, res) {
         res.json({ page, limit, total, events: mapped });
     } catch (error) {
         console.error("Errore nel recupero degli eventi degli utenti seguiti:", error);
+
+        if (error.message === 'INVALID_ID') {
+            return res.status(400).json({ error: 'ID utente non valido.' });
+        }
+
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
@@ -315,26 +263,10 @@ async function getEventsFromFollowedUsers(req, res) {
 async function getEventDetails(req, res) {
     try {
         const eventId = parseInt(req.params.id, 10);
-        if (Number.isNaN(eventId)) return res.status(400).json({ error: 'ID evento non valido.' });
 
-        const event = await prisma.event.findUnique({
-            where: { id: eventId },
-            include: {
-                creator: { select: { id: true, username: true, profilePictureUrl: true } },
-                registrations: {
-                    include: {
-                        user: { select: { id: true, username: true, profilePictureUrl: true, email: true } }
-                    },
-                    orderBy: { registeredAt: 'asc' }
-                }
-            }
-        });
+        const event = await eventModel.getEventWithDetails(eventId);
 
-        if (!event) {
-            return res.status(404).json({ error: 'Evento non trovato.' });
-        }
-
-        // mappa le registrations in una lista di partecipanti più semplice
+        // Mappa le registrations in una lista di partecipanti (layer di presentazione)
         const participants = event.registrations.map(r => {
             return {
                 id: r.user?.id ?? null,
@@ -345,13 +277,21 @@ async function getEventDetails(req, res) {
             };
         });
 
-        // espone participants separatamente, senza le registrations raw
+        // Espone participants separatamente, senza le registrations raw
         const { registrations, ...rest } = event;
         const response = { ...rest, participants, participantsCount: participants.length };
 
         return res.json(response);
     } catch (error) {
         console.error("Errore nel recupero dei dettagli dell'evento:", error);
+
+        if (error.message === 'INVALID_EVENT_ID') {
+            return res.status(400).json({ error: 'ID evento non valido.' });
+        }
+        if (error.message === 'EVENT_NOT_FOUND') {
+            return res.status(404).json({ error: 'Evento non trovato.' });
+        }
+
         res.status(500).json({ error: 'Errore interno del server.' });
     }
 }
