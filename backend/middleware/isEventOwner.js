@@ -11,7 +11,7 @@ const isEventOwner = async (req,res, next) =>
                 console.log("controllo passato")
                 next();
             }else{
-                return res.status(401).json({ error: 'Accesso non autorizzato: non si ha autorizzazione ad effettuare le modifiche.' });
+                return res.status(403).json({ error: 'Accesso non autorizzato: non si ha autorizzazione ad effettuare le modifiche.' });
             }
         } catch (error) {  return res.status(500).json({errore: "Internal server error"}); }
 }

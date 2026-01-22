@@ -17,6 +17,6 @@ async function findCreatorByID(eventId) {
 }
 
 module.exports={
-    findCreatorByID,
-    insertEvent
+    findCreatorByID
+    
 }
