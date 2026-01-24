@@ -214,8 +214,8 @@ function MieiDatiPage() {
         if (name === 'newPassword') {
             if (!value) {
                 error = 'Nuova password è obbligatoria';
-            } else if (value.length < 8) {
-                error = 'La password deve essere di almeno 8 caratteri';
+            } else if (value.length < 10) {
+                error = 'La password deve essere di almeno 10 caratteri';
             }
         }
         if (name === 'confirmPassword') {
