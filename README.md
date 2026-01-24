@@ -282,9 +282,11 @@ I contributi sono benvenuti! Per contribuire:
 
 Questo progetto è distribuito sotto licenza MIT. Vedi il file [LICENSE](LICENSE) per maggiori dettagli.
 
-## 👨‍💻 Autore
+## 👨‍💻 Autori
 
 **Angelo Albanesi**
+**Paolo Campanari**
+**Riccardo Albanesi**
 
 - GitHub: [@AngeloAlbanesi](https://github.com/AngeloAlbanesi)
 - GitHub: [@PaoloCampanari](https://github.com/PaoloCampanari)
