@@ -30,6 +30,11 @@ function validatePasswordServer(pw) {
     return errors;
 }
 
+// hash refresh token (per non salvarlo in chiaro nel DB)
+function hashRefreshToken(token) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 //Funzione centralizzata per generare e salvare i token
 async function generateAndSetTokens(user, res) {
     const accessToken = jwt.sign(
@@ -42,7 +47,10 @@ async function generateAndSetTokens(user, res) {
         process.env.REFRESH_TOKEN_SECRET,
         { expiresIn: "7d" }
     );
-    await updateUserRefreshToken(user.id, refreshToken);
+
+    // salva HASH refresh token nel DB (non in chiaro)
+    await updateUserRefreshToken(user.id, hashRefreshToken(refreshToken));
+
     res.cookie('token', accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -241,6 +249,7 @@ async function logout(req, res) {
             status: "internal server error" });
     }
 }
+
 // Refresh token endpoint
 async function refreshToken(req, res) {
     const refreshToken = req.cookies.refreshToken;
@@ -253,17 +262,32 @@ async function refreshToken(req, res) {
     try {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
         const user = await findById(decoded.Id);
-        if (!user || user.refreshToken !== refreshToken) {
+
+        // confronto con hash 
+        const incomingHash = hashRefreshToken(refreshToken);
+        if (!user || user.refreshToken !== incomingHash) {
             return res.status(403).json({ 
                 error: "Refresh token non valido", 
                 code: 403, 
                 status: "forbidden" });
         }
+
         const newAccessToken = jwt.sign(
             { Id: user.id, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: "15m" }
         );
+
+        // ROTAZIONE refresh token
+        const newRefreshToken = jwt.sign(
+            { Id: user.id },
+            process.env.REFRESH_TOKEN_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        // salva hash nuovo refresh 
+        await updateUserRefreshToken(user.id, hashRefreshToken(newRefreshToken));
+
         res.cookie('token', newAccessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -271,9 +295,18 @@ async function refreshToken(req, res) {
             maxAge: 15 * 60 * 1000,
             path: '/',
         });
+
+        res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: '/api/auth/refresh-token',
+        });
+
+        // niente token nel body
         return res.status(200).json({ 
             success: true,
-            data: { token: newAccessToken }, 
             code: 200, 
             status: "ok" });
 
@@ -409,6 +442,7 @@ async function registerWithGoogle(req, res) {
         });
     }
 }
+
 // Login con Google 
 async function loginWithGoogle(req, res) {
     const { credential } = req.body;
@@ -474,6 +508,7 @@ async function loginWithGoogle(req, res) {
         });
     }
 }
+
 // PATCH /api/users/me/password - Cambia password
 async function changePassword(req, res) {
     try {
