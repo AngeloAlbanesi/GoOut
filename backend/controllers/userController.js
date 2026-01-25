@@ -11,6 +11,7 @@ const {
     unfollowUser,
     findPublicProfileById
 } = require('../models/userModel.js');
+const { sanitizeUserData } = require('../utils/sanitizeUser.js');
 
 
 
@@ -22,9 +23,8 @@ async function getMieiDati(req, res) {
         if (!user) {
             return res.status(404).json({ error: 'Utente non trovato', code: 404 });
         }
-        // Rimuovi il campo passwordHash dalla risposta
-        const { passwordHash, refreshToken, ...userData } = user;
-        return res.status(200).json(userData);
+        // Rimuovi i campi sensibili usando la funzione centralizzata
+        return res.status(200).json(sanitizeUserData(user));
     } catch (err) {
         console.error('Errore nel recupero dei dati utente:', err);
         return res.status(500).json({ error: 'Errore interno del server', code: 500 });
@@ -57,8 +57,7 @@ async function updateProfile(req, res) {
         }
 
         const updatedUser = await updateUser(req.id, username, bio, undefined, dateOfBirth ? new Date(dateOfBirth) : undefined);
-        const { passwordHash, refreshToken, ...userData } = updatedUser;
-        return res.status(200).json(userData);
+        return res.status(200).json(sanitizeUserData(updatedUser));
     } catch (err) {
         console.error('Errore nell\'aggiornamento profilo:', err);
         return res.status(500).json({ error: 'Errore interno del server', code: 500 });
@@ -83,8 +82,7 @@ async function uploadAvatar(req, res) {
         }
 
         const updatedUser = await updateUserProfilePicture(req.id, profilePictureUrl);
-        const { passwordHash, refreshToken, ...userData } = updatedUser;
-        return res.status(200).json(userData);
+        return res.status(200).json(sanitizeUserData(updatedUser));
     } catch (err) {
         console.error('Errore nell\'upload avatar:', err);
         return res.status(500).json({ error: 'Errore interno del server', code: 500 });
@@ -102,8 +100,7 @@ async function removeAvatar(req, res) {
             }
         }
         const updatedUser = await updateUserProfilePicture(req.id, null);
-        const { passwordHash, refreshToken, ...userData } = updatedUser;
-        return res.status(200).json(userData);
+        return res.status(200).json(sanitizeUserData(updatedUser));
     } catch (err) {
         console.error('Errore nella rimozione avatar:', err);
         return res.status(500).json({ error: 'Errore interno del server', code: 500 });
@@ -160,12 +157,15 @@ async function followUserController(req, res) {
             return res.status(404).json({ error: 'Utente target non trovato' });
         }
 
-        // Errore imprevisto: log e ritorna dettaglio per debug (temporaneo)
+        // Errore imprevisto: log per debug
         console.error('Errore followUser (model):', err, err.stack);
         return res.status(500).json({
             error: 'Errore interno durante il follow',
-            detail: err?.message || String(err),
-            stack: err?.stack
+            // Stack trace incluso solo in sviluppo per evitare Information Disclosure
+            ...(process.env.NODE_ENV === 'development' && {
+                detail: err?.message || String(err),
+                stack: err?.stack
+            })
         });
     }
 }
@@ -191,8 +191,11 @@ async function unfollowUserController(req, res) {
         console.error('Errore unfollowUser (model):', err, err.stack);
         return res.status(500).json({
             error: 'Errore interno durante l\'unfollow',
-            detail: err?.message || String(err),
-            stack: err?.stack
+            // Stack trace incluso solo in sviluppo per evitare Information Disclosure
+            ...(process.env.NODE_ENV === 'development' && {
+                detail: err?.message || String(err),
+                stack: err?.stack
+            })
         });
     }
 }
