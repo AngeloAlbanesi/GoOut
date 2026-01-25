@@ -1,4 +1,3 @@
-//controllers/userController.js
 const fs = require('fs');
 const path = require('path');
 const {
@@ -56,7 +55,16 @@ async function updateProfile(req, res) {
             return res.status(400).json({ error: 'Bio troppo lunga (max 500 caratteri)', code: 400 });
         }
 
-        const updatedUser = await updateUser(req.id, username, bio, undefined, dateOfBirth ? new Date(dateOfBirth) : undefined);
+        // Validazione data di nascita
+        let validDateOfBirth;
+        if (dateOfBirth) {
+            validDateOfBirth = new Date(dateOfBirth);
+            if (isNaN(validDateOfBirth.getTime())) {
+                return res.status(400).json({ error: 'Data di nascita non valida', code: 400 });
+            }
+        }
+
+        const updatedUser = await updateUser(req.id, username, bio, undefined, validDateOfBirth);
         return res.status(200).json(sanitizeUserData(updatedUser));
     } catch (err) {
         console.error('Errore nell\'aggiornamento profilo:', err);
@@ -72,12 +80,18 @@ async function uploadAvatar(req, res) {
         }
         const profilePictureUrl = `/uploads/${req.file.filename}`;
 
-        // Recupera l'utente per eliminare la vecchia immagine se esiste
+        // Recupera l\'utente per eliminare la vecchia immagine se esiste
         const user = await findById(req.id);
         if (user && user.profilePictureUrl) {
             const oldPath = path.join(__dirname, '..', user.profilePictureUrl);
-            if (fs.existsSync(oldPath)) {
-                fs.unlinkSync(oldPath);
+            try {
+                // Utilizzo di fs.promises per non bloccare l\'Event Loop
+                await fs.promises.unlink(oldPath);
+            } catch (err) {
+                // Ignoriamo l\'errore se il file non esiste (ENOENT), logghiamo gli altri
+                if (err.code !== 'ENOENT') {
+                    console.error('Errore durante la rimozione del vecchio avatar:', err);
+                }
             }
         }
 
@@ -95,8 +109,13 @@ async function removeAvatar(req, res) {
         const user = await findById(req.id);
         if (user && user.profilePictureUrl) {
             const oldPath = path.join(__dirname, '..', user.profilePictureUrl);
-            if (fs.existsSync(oldPath)) {
-                fs.unlinkSync(oldPath);
+            try {
+                // Utilizzo di fs.promises per non bloccare l\'Event Loop
+                await fs.promises.unlink(oldPath);
+            } catch (err) {
+                if (err.code !== 'ENOENT') {
+                    console.error('Errore durante la rimozione del vecchio avatar:', err);
+                }
             }
         }
         const updatedUser = await updateUserProfilePicture(req.id, null);
