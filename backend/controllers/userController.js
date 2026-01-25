@@ -47,6 +47,15 @@ async function searchUsersController(req, res) {
 async function updateProfile(req, res) {
     try {
         const { username, bio, dateOfBirth } = req.body;
+
+        // Validazione lunghezza campi per prevenire XSS payload eccessivi
+        if (username && username.length > 50) {
+            return res.status(400).json({ error: 'Username troppo lungo (max 50 caratteri)', code: 400 });
+        }
+        if (bio && bio.length > 500) {
+            return res.status(400).json({ error: 'Bio troppo lunga (max 500 caratteri)', code: 400 });
+        }
+
         const updatedUser = await updateUser(req.id, username, bio, undefined, dateOfBirth ? new Date(dateOfBirth) : undefined);
         const { passwordHash, refreshToken, ...userData } = updatedUser;
         return res.status(200).json(userData);

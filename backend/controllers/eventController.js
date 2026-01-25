@@ -6,6 +6,17 @@ async function createEvent(req, res) {
         const { title, description, date, location, maxParticipants } = req.body;
         const userId = req.id; // Ottenuto dal middleware isAuthenticated
 
+        // Validazione lunghezza campi per prevenire XSS payload eccessivi
+        if (title && title.length > 200) {
+            return res.status(400).json({ error: 'Titolo troppo lungo (max 200 caratteri).' });
+        }
+        if (description && description.length > 2000) {
+            return res.status(400).json({ error: 'Descrizione troppo lunga (max 2000 caratteri).' });
+        }
+        if (location && location.length > 200) {
+            return res.status(400).json({ error: 'Località troppo lunga (max 200 caratteri).' });
+        }
+
         const newEvent = await eventModel.createEvent(
             title,
             description,
@@ -40,6 +51,17 @@ async function updateEvent(req, res) {
         const { title, description, date, location, maxParticipants } = req.body;
 
         // Nota: Il middleware isEventOwner ha già verificato che l'utente sia il creatore
+
+        // Validazione lunghezza campi per prevenire XSS payload eccessivi
+        if (title && title.length > 200) {
+            return res.status(400).json({ error: 'Titolo troppo lungo (max 200 caratteri).' });
+        }
+        if (description && description.length > 2000) {
+            return res.status(400).json({ error: 'Descrizione troppo lunga (max 2000 caratteri).' });
+        }
+        if (location && location.length > 200) {
+            return res.status(400).json({ error: 'Località troppo lunga (max 200 caratteri).' });
+        }
 
         const updatedEvent = await eventModel.updateEvent(eventId, {
             title,
