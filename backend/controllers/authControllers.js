@@ -4,14 +4,14 @@ const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const { createUser,
-        findByEmail, 
-        findById, 
-        updateUserRefreshToken, 
-        freeUsername, 
-        findByUsername, 
-        findByProviderId,
-        updateUserPassword } = require('../models/userModel.js');
-        
+    findByEmail,
+    findById,
+    updateUserRefreshToken,
+    freeUsername,
+    findByUsername,
+    findByProviderId,
+    updateUserPassword } = require('../models/userModel.js');
+
 const { path } = require('express/lib/application.js');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -72,9 +72,9 @@ async function generateAndSetTokens(user, res) {
 async function addSecretToPassword(password) {
     const secret = process.env.PASSWORD_SECRET;
     const passwordWithSecret = crypto
-    .createHash('sha256')
-    .update(password + secret)
-    .digest('hex'); // 64 char, lunghezza standard ok per bycript
+        .createHash('sha256')
+        .update(password + secret)
+        .digest('hex'); // 64 char, lunghezza standard ok per bycript
     return passwordWithSecret;
 }
 
@@ -83,62 +83,84 @@ async function register(req, res) {
     const { email, password, username, dateOfBirth } = req.body;
     // Validazione email
     if (!validatoreEmail.isEmail(email)) {
-        return res.status(400).json({ 
-            error: "Email non valida", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Email non valida",
+            code: 400,
+            status: "bad request"
+        });
     }
     // Validazione password
     if (!password) {
-        return res.status(400).json({ 
-            error: "Password mancante", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Password mancante",
+            code: 400,
+            status: "bad request"
+        });
     }
     const pwErrors = validatePasswordServer(password);
     if (pwErrors.length) {
-        return res.status(400).json({ 
-            error: 'Password non conforme', 
-            detail: pwErrors.join(' | '), 
-            code: 400, 
-            status: 'bad request' });
+        return res.status(400).json({
+            error: 'Password non conforme',
+            detail: pwErrors.join(' | '),
+            code: 400,
+            status: 'bad request'
+        });
     }
     // Validazione username
+    if (!username || username.trim().length === 0) {
+        return res.status(400).json({
+            error: "Username obbligatorio",
+            code: 400,
+            status: "bad request"
+        });
+    }
+    if (username.length > 50) {
+        return res.status(400).json({
+            error: "Username troppo lungo (max 50 caratteri)",
+            code: 400,
+            status: "bad request"
+        });
+    }
     if (!await freeUsername(username)) {
-        return res.status(409).json({ 
-            error: "L'username " + username + " non è disponibile", 
-            code: 409, 
-            status: "conflict" });
+        return res.status(409).json({
+            error: "L'username " + username + " non è disponibile",
+            code: 409,
+            status: "conflict"
+        });
     }
     // Validazione data di nascita
     if (!dateOfBirth) {
-        return res.status(400).json({ 
-            error: "Data di nascita mancante", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Data di nascita mancante",
+            code: 400,
+            status: "bad request"
+        });
     }
     const dateOfBirthObj = new Date(dateOfBirth);
     if (isNaN(dateOfBirthObj.getTime())) {
-        return res.status(400).json({ 
-            error: "Data di nascita non valida", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Data di nascita non valida",
+            code: 400,
+            status: "bad request"
+        });
     }
     const currentDate = new Date();
     if (dateOfBirthObj > currentDate) {
-        return res.status(400).json({ 
-            error: "Data di nascita non valida", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Data di nascita non valida",
+            code: 400,
+            status: "bad request"
+        });
     }
 
     // Verifica email esistente
     const userEsistente = await findByEmail(email);
     if (userEsistente) {
-        return res.status(409).json({ 
-            error: "L'email " + email + " è collegata ad un account esistente", 
-            code: 409, 
-            status: "conflict" });
+        return res.status(409).json({
+            error: "L'email " + email + " è collegata ad un account esistente",
+            code: 409,
+            status: "conflict"
+        });
     }
 
     try {
@@ -236,17 +258,19 @@ async function logout(req, res) {
     try {
         res.clearCookie('token', { path: '/' });
         res.clearCookie('refreshToken', { path: '/api/auth/refresh-token' });
-        return res.status(200).json({ 
-            success: true, 
-            message: "Logout effettuato con successo", 
-            code: 200, 
-            status: "ok" });
+        return res.status(200).json({
+            success: true,
+            message: "Logout effettuato con successo",
+            code: 200,
+            status: "ok"
+        });
     } catch (err) {
-        return res.status(500).json({ 
-            success: false, 
-            errore: "Errore interno durante il logout", 
-            code: 500, 
-            status: "internal server error" });
+        return res.status(500).json({
+            success: false,
+            errore: "Errore interno durante il logout",
+            code: 500,
+            status: "internal server error"
+        });
     }
 }
 
@@ -254,10 +278,11 @@ async function logout(req, res) {
 async function refreshToken(req, res) {
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) {
-        return res.status(401).json({ 
-            error: "Refresh token mancante", 
-            code: 401, 
-            status: "unauthorized" });
+        return res.status(401).json({
+            error: "Refresh token mancante",
+            code: 401,
+            status: "unauthorized"
+        });
     }
     try {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
@@ -266,10 +291,11 @@ async function refreshToken(req, res) {
         // confronto con hash 
         const incomingHash = hashRefreshToken(refreshToken);
         if (!user || user.refreshToken !== incomingHash) {
-            return res.status(403).json({ 
-                error: "Refresh token non valido", 
-                code: 403, 
-                status: "forbidden" });
+            return res.status(403).json({
+                error: "Refresh token non valido",
+                code: 403,
+                status: "forbidden"
+            });
         }
 
         const newAccessToken = jwt.sign(
@@ -305,16 +331,18 @@ async function refreshToken(req, res) {
         });
 
         // niente token nel body
-        return res.status(200).json({ 
+        return res.status(200).json({
             success: true,
-            code: 200, 
-            status: "ok" });
+            code: 200,
+            status: "ok"
+        });
 
     } catch (err) {
-        return res.status(403).json({ 
-            error: "Refresh token non valido", 
+        return res.status(403).json({
+            error: "Refresh token non valido",
             code: 403,
-            status: "forbidden" });
+            status: "forbidden"
+        });
     }
 }
 
@@ -323,40 +351,45 @@ async function registerWithGoogle(req, res) {
     const { credential, username, dateOfBirth } = req.body;
 
     if (!credential) {
-        return res.status(400).json({ 
-            error: "Token Google mancante", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Token Google mancante",
+            code: 400,
+            status: "bad request"
+        });
     }
 
     if (!username) {
-        return res.status(400).json({ 
-            error: "Username mancante", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Username mancante",
+            code: 400,
+            status: "bad request"
+        });
     }
 
     if (!dateOfBirth) {
-        return res.status(400).json({ 
-            error: "Data di nascita mancante", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Data di nascita mancante",
+            code: 400,
+            status: "bad request"
+        });
     }
 
     const dateOfBirthObj = new Date(dateOfBirth);
     if (isNaN(dateOfBirthObj.getTime())) {
-        return res.status(400).json({ 
-            error: "Data di nascita non valida", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Data di nascita non valida",
+            code: 400,
+            status: "bad request"
+        });
     }
 
     const currentDate = new Date();
     if (dateOfBirthObj > currentDate) {
-        return res.status(400).json({ 
-            error: "Data di nascita non valida", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Data di nascita non valida",
+            code: 400,
+            status: "bad request"
+        });
     }
 
     try {
@@ -381,27 +414,30 @@ async function registerWithGoogle(req, res) {
             });
         }
         if (!await freeUsername(username)) {
-            return res.status(409).json({ 
-                error: "L'username " + username + " non è disponibile", 
-                code: 409, 
-                status: "conflict" });
+            return res.status(409).json({
+                error: "L'username " + username + " non è disponibile",
+                code: 409,
+                status: "conflict"
+            });
         }
         // Verifica per providerId (Google Sub)
         const userEsistenteGoogle = await findByProviderId(googleSub);
         if (userEsistenteGoogle) {
-            return res.status(409).json({ 
-                error: "Esiste già un account Google con questo profilo.", 
-                code: 409, 
-                status: "conflict" });
+            return res.status(409).json({
+                error: "Esiste già un account Google con questo profilo.",
+                code: 409,
+                status: "conflict"
+            });
         }
 
         // Verifica anche per email (caso utente LOCAL con stessa email)
         const userEsistenteEmail = await findByEmail(email);
         if (userEsistenteEmail) {
-            return res.status(409).json({ 
-                error: "Esiste già un account associato a questa email.", 
-                code: 409, 
-                status: "conflict" });
+            return res.status(409).json({
+                error: "Esiste già un account associato a questa email.",
+                code: 409,
+                status: "conflict"
+            });
         }
         await createUser(
             email,
@@ -447,10 +483,11 @@ async function registerWithGoogle(req, res) {
 async function loginWithGoogle(req, res) {
     const { credential } = req.body;
     if (!credential) {
-        return res.status(400).json({ 
-            error: "Token Google mancante", 
-            code: 400, 
-            status: "bad request" });
+        return res.status(400).json({
+            error: "Token Google mancante",
+            code: 400,
+            status: "bad request"
+        });
     }
     try {
         const ticket = await googleClient.verifyIdToken({
