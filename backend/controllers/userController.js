@@ -33,7 +33,18 @@ async function getMieiDati(req, res) {
 // GET /api/users/search - Cerca utenti
 async function searchUsersController(req, res) {
     try {
-        const { q } = req.query;
+        let { q } = req.query;
+
+        // Sanitizzazione del parametro di ricerca
+        const { sanitizeString } = require('../middleware/sanitizeInput');
+        if (q && typeof q === 'string') {
+            q = sanitizeString(q);
+            // Limitazione lunghezza per prevenire abusi
+            if (q.length > 100) {
+                return res.status(400).json({ error: 'Query di ricerca troppo lunga (max 100 caratteri)', code: 400 });
+            }
+        }
+
         const users = await searchUsers(q, req.id);
         return res.status(200).json(users);
     } catch (err) {

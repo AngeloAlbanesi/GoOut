@@ -47,18 +47,15 @@ function sanitizeObject(obj) {
 }
 
 /**
- * Middleware Express per sanitizzare automaticamente req.body, req.query e req.params
+ * Middleware Express per sanitizzare automaticamente req.body
+ * NOTA: Non sanitizziamo req.query e req.params per evitare problemi con URL encoding
+ * I parametri URL vengono già validati lato server nei controller
  */
 function sanitizeInputMiddleware(req, res, next) {
     if (req.body) {
         req.body = sanitizeObject(req.body);
     }
-    if (req.query) {
-        req.query = sanitizeObject(req.query);
-    }
-    if (req.params) {
-        req.params = sanitizeObject(req.params);
-    }
+    // Non sanitizziamo req.query e req.params per preservare l'URL encoding
     next();
 }
 
